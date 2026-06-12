@@ -22,6 +22,15 @@
   --transition-speed: 0.2s;
 }
 
+/* 全局隐藏滚动条 */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}
+
 /* 无障碍色板（色弱友好） */
 :root {
   --color-blind-safe-1: #0077BB;

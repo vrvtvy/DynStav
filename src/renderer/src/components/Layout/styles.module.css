@@ -23,7 +23,7 @@
 
 .sidebar {
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid var(--border-color);
   background: var(--bg-secondary);
 }
@@ -36,7 +36,7 @@
 
 .rightPanel {
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
   border-left: 1px solid var(--border-color);
   background: var(--bg-secondary);
 }
