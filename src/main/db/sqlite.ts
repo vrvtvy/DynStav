@@ -1,6 +1,6 @@
 import initSqlJs, { Database as SqlJsDatabase, SqlJsStatic } from 'sql.js'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
-import { join } from 'path'
+import { getDataPath } from '../paths'
 import { BlockDailyStats, BlockInfo, QueryParams } from '../../renderer/src/types'
 import { DataRepository } from './interface'
 
@@ -11,7 +11,7 @@ export class SqliteRepository implements DataRepository {
   private dbPath: string
 
   constructor() {
-    this.dbPath = join(__dirname, '../../../data/dynstav.db')
+    this.dbPath = getDataPath('dynstav.db')
   }
 
   async init(): Promise<void> {

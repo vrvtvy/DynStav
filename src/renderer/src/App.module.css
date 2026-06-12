@@ -1,0 +1,31 @@
+.app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.toast {
+  position: fixed;
+  bottom: 40px;
+  right: 20px;
+  padding: 10px 20px;
+  background: var(--accent-success);
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: var(--font-size-sm);
+  z-index: 9999;
+  animation: slideIn 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

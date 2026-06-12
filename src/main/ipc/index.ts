@@ -6,6 +6,24 @@ import { getRepository } from '../db'
 import { IPC_CHANNELS } from '../../renderer/src/types'
 
 export function registerIpcHandlers(): void {
+  // 窗口控制
+  ipcMain.on('window-minimize', () => {
+    BrowserWindow.getFocusedWindow()?.minimize()
+  })
+
+  ipcMain.on('window-maximize', () => {
+    const win = BrowserWindow.getFocusedWindow()
+    if (win?.isMaximized()) {
+      win.unmaximize()
+    } else {
+      win?.maximize()
+    }
+  })
+
+  ipcMain.on('window-close', () => {
+    BrowserWindow.getFocusedWindow()?.close()
+  })
+
   // 获取板块列表
   ipcMain.handle(IPC_CHANNELS.GET_BLOCKS, () => {
     return getRepository().getBlocks()
@@ -23,7 +41,7 @@ export function registerIpcHandlers(): void {
 
   // 同步数据
   ipcMain.handle(IPC_CHANNELS.SYNC_DATA, async () => {
-    await syncAllData()
+    await syncAllData(true)
     const win = BrowserWindow.getFocusedWindow()
     win?.webContents.send(IPC_CHANNELS.SYNC_DONE)
   })
@@ -34,20 +52,21 @@ export function registerIpcHandlers(): void {
   })
 }
 
-/** 同步所有数据（启动时和手动同步时调用） */
-export async function syncAllData(): Promise<void> {
+/** 同步所有数据
+ *  @param force - 强制同步（忽略今日是否已有数据）
+ */
+export async function syncAllData(force = false): Promise<void> {
   const config = parseConfig()
   const today = getTodayStr()
 
-  // 若今天已有数据则跳过
-  const repo = getRepository()
-  const existing = repo.queryStats({ startDate: today, endDate: today, blockCode: '' })
-  if (existing.length > 0) return
+  if (!force) {
+    const repo = getRepository()
+    const existing = repo.queryStats({ startDate: today, endDate: today, blockCode: '' })
+    if (existing.length > 0) return
+  }
 
-  // 获取股票行情
   const quotes = await fetchStockQuotes(config.allAStockCodes)
 
-  // 构建报价映射
   const quoteMap: Record<string, { price: number; changePercent: number; amount: number; turnoverRate: number }> = {}
   for (const q of quotes) {
     quoteMap[q.code] = {
@@ -58,10 +77,7 @@ export async function syncAllData(): Promise<void> {
     }
   }
 
-  // 分析计算
   const results = analyzeBlocks(config.blockStocks, config.blockNames, quoteMap, today)
-
-  // 保存结果
   repo.saveStats(results.map(r => r.stats))
 }
 

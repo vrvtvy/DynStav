@@ -1,6 +1,6 @@
 import ReactECharts from 'echarts-for-react'
-import { useRef, useMemo } from 'react'
-import { BlockDailyStats, BlockInfo, ChartMetric } from '../../types'
+import { useState, useMemo, useCallback } from 'react'
+import { BlockDailyStats, BlockInfo } from '../../types'
 import styles from './styles.module.css'
 
 interface ChartViewProps {
@@ -9,30 +9,31 @@ interface ChartViewProps {
   blocks: BlockInfo[]
 }
 
-const METRICS: ChartMetric[] = [
-  { key: 'avgChangePercent', label: '平均涨跌幅', unit: '%', color: '#0077BB', type: 'line' },
-  { key: 'stockCount', label: '股票数量', unit: '只', color: '#EE7733', type: 'line' },
-  { key: 'avgPrice', label: '平均股价', unit: '元', color: '#009988', type: 'line' },
-  { key: 'avgAmount', label: '平均成交额', unit: '亿', color: '#CC3311', type: 'line' },
-  { key: 'totalAmount', label: '总成交额', unit: '亿', color: '#33BBEE', type: 'bar' },
-  { key: 'avgTurnoverRate', label: '平均换手率', unit: '%', color: '#EE3377', type: 'line' }
+const METRICS = [
+  { key: 'avgChangePercent', label: '平均涨跌幅', unit: '%', color: '#0077BB', type: 'line' as const },
+  { key: 'stockCount', label: '股票数量', unit: '只', color: '#EE7733', type: 'line' as const },
+  { key: 'avgPrice', label: '平均股价', unit: '元', color: '#009988', type: 'line' as const },
+  { key: 'avgAmount', label: '平均成交额', unit: '亿', color: '#CC3311', type: 'line' as const },
+  { key: 'totalAmount', label: '总成交额', unit: '亿', color: '#33BBEE', type: 'bar' as const },
+  { key: 'avgTurnoverRate', label: '平均换手率', unit: '%', color: '#EE3377', type: 'line' as const }
 ]
 
 export default function ChartView({ stats, selectedBlock, blocks }: ChartViewProps) {
-  const chartRef = useRef<ReactECharts>(null)
+  const [highlighted, setHighlighted] = useState('平均涨跌幅')
   const currentBlock = blocks.find(b => b.code === selectedBlock)
 
-  const dates = useMemo(() => [...new Set(stats.map(s => s.date))].sort(), [stats])
+  const dates = useMemo(() => {
+    const set = new Set(stats.map(s => s.date))
+    return Array.from(set).sort()
+  }, [stats])
 
   const option = useMemo(() => {
     if (!stats.length) return {}
 
-    const defaultMetric = 'avgChangePercent'
     const series: any[] = []
-    const legendData: string[] = []
 
     METRICS.forEach((metric, idx) => {
-      legendData.push(metric.label)
+      const isHighlighted = metric.label === highlighted
       const data = dates.map(date => {
         const item = stats.find(s => s.date === date)
         return item ? Number((item[metric.key] as number).toFixed(2)) : null
@@ -45,20 +46,27 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
         data,
         smooth: metric.type === 'line',
         symbol: 'circle',
-        symbolSize: 6,
+        symbolSize: isHighlighted ? 8 : 4,
         lineStyle: {
-          width: metric.label === defaultMetric ? 3 : 1.5
-        },
-        itemStyle: {
+          width: isHighlighted ? 3 : 1,
           color: metric.color
         },
-        emphasis: {
-          lineStyle: {
-            width: 4
-          }
+        itemStyle: {
+          color: metric.color,
+          opacity: isHighlighted ? 1 : 0.35
         },
-        // 默认高亮first metric
-        ...(metric.label !== defaultMetric ? { opacity: 0.6 } : {})
+        areaStyle: isHighlighted && metric.type === 'line' ? {
+          color: metric.color,
+          opacity: 0.1
+        } : undefined,
+        emphasis: {
+          lineStyle: { width: 4 },
+          itemStyle: { opacity: 1 }
+        },
+        blur: {
+          lineStyle: { opacity: 0.2 },
+          itemStyle: { opacity: 0.2 }
+        }
       })
     })
 
@@ -70,24 +78,32 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
         textStyle: { color: 'var(--text-primary)', fontSize: 12 },
         formatter: function (params: any) {
           let tip = `<strong>${params[0].axisValue}</strong><br/>`
-          params.forEach((p: any) => {
-            const metric = METRICS.find(m => m.label === p.seriesName)
-            tip += `${p.marker} ${p.seriesName}: ${p.value}${metric ? metric.unit : ''}<br/>`
-          })
+          for (const p of params) {
+            const m = METRICS.find(x => x.label === p.seriesName)
+            tip += `${p.marker} ${p.seriesName}: ${p.value}${m ? m.unit : ''}<br/>`
+          }
           return tip
         }
       },
       legend: {
-        data: legendData,
+        data: METRICS.map(m => ({
+          name: m.label,
+          textStyle: {
+            color: m.label === highlighted ? m.color : 'var(--text-secondary)',
+            fontWeight: m.label === highlighted ? 'bold' : 'normal',
+            fontSize: m.label === highlighted ? 13 : 12
+          }
+        })),
         top: 5,
         textStyle: { color: 'var(--text-primary)', fontSize: 12 },
-        selectedMode: true,
-        // 点击图例控制高亮
+        selectedMode: false
       },
-      grid: [
-        { left: '6%', right: '6%', top: 50, bottom: 30 },
-        { left: '6%', right: '6%', top: 50, bottom: 30 }
-      ],
+      grid: {
+        left: 55,
+        right: 55,
+        top: 50,
+        bottom: 30
+      },
       xAxis: {
         type: 'category',
         data: dates,
@@ -97,14 +113,16 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
       yAxis: [
         {
           type: 'value',
-          name: '',
+          name: METRICS.slice(0, 3).find(m => m.label === highlighted)?.label || '',
+          nameTextStyle: { color: METRICS.slice(0, 3).find(m => m.label === highlighted)?.color || '#0077BB' },
           axisLine: { lineStyle: { color: '#0077BB' } },
           axisLabel: { color: 'var(--text-secondary)', fontSize: 11 },
           splitLine: { lineStyle: { color: 'var(--border-light)', type: 'dashed' } }
         },
         {
           type: 'value',
-          name: '',
+          name: METRICS.slice(3).find(m => m.label === highlighted)?.label || '',
+          nameTextStyle: { color: METRICS.slice(3).find(m => m.label === highlighted)?.color || '#CC3311' },
           axisLine: { lineStyle: { color: '#CC3311' } },
           axisLabel: { color: 'var(--text-secondary)', fontSize: 11 },
           splitLine: { show: false }
@@ -112,25 +130,13 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
       ],
       series
     }
-  }, [stats, dates])
+  }, [stats, dates, highlighted])
 
-  function handleChartClick(params: any) {
-    // 点击图例切换高亮
-    if (params.componentType === 'legend' || params.componentType === 'series') {
-      const metric = METRICS.find(m => m.label === params.name || m.label === params.seriesName)
-      if (!metric) return
-
-      const instance = chartRef.current?.getEchartsInstance()
-      if (!instance) return
-
-      METRICS.forEach(m => {
-        instance.dispatchAction({
-          type: m.label === metric.label ? 'emphasis' : 'downplay',
-          seriesName: m.label
-        })
-      })
+  const handleLegendClick = useCallback((params: any) => {
+    if (params.name) {
+      setHighlighted(params.name)
     }
-  }
+  }, [])
 
   const blockName = currentBlock?.name || selectedBlock || '无数据'
 
@@ -147,19 +153,20 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
       {stats.length > 0 ? (
         <div className={styles.chartContainer}>
           <ReactECharts
-            ref={chartRef}
             option={option}
             style={{ height: '100%', width: '100%' }}
             onEvents={{
-              click: handleChartClick,
-              legendselectchanged: handleChartClick
+              legendselectchanged: handleLegendClick,
+              click: (params: any) => {
+                if (params.componentType === 'legend') {
+                  handleLegendClick(params)
+                }
+              }
             }}
           />
         </div>
       ) : (
-        <div className={styles.empty}>
-          暂无数据，请先同步数据
-        </div>
+        <div className={styles.empty}>暂无数据，请先同步数据</div>
       )}
     </div>
   )

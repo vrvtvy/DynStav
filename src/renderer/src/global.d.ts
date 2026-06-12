@@ -3,6 +3,9 @@ import { BlockInfo, BlockDailyStats, QueryParams } from './types'
 declare global {
   interface Window {
     electronAPI: {
+      minimizeWindow: () => void
+      maximizeWindow: () => void
+      closeWindow: () => void
       getBlocks: () => Promise<BlockInfo[]>
       queryStats: (params: QueryParams) => Promise<BlockDailyStats[]>
       syncData: () => Promise<void>

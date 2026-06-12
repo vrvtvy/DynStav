@@ -45,7 +45,8 @@ async function fetchBatch(codes: string[]): Promise<StockQuote[]> {
     return prefix + code
   }).join(',')
 
-  const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f2,f3,f4,f5,f12,f14&secids=${secids}`
+  // 东方财富字段说明：f2=最新价, f3=涨跌幅%, f6=成交额(元), f8=换手率%, f12=代码, f14=名称
+  const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f2,f3,f6,f8,f12,f14&secids=${secids}`
 
   try {
     const response = await fetch(url)
@@ -57,8 +58,8 @@ async function fetchBatch(codes: string[]): Promise<StockQuote[]> {
       code: String(item.f12),
       price: item.f2 ?? 0,
       changePercent: item.f3 ?? 0,
-      amount: item.f4 ?? 0,
-      turnoverRate: item.f5 ?? 0
+      amount: item.f6 ?? 0,
+      turnoverRate: item.f8 ?? 0
     }))
   } catch (error) {
     console.error('获取股票数据失败:', error)

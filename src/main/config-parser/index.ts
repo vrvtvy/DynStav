@@ -1,13 +1,13 @@
-import { readFileSync, existsSync, copyFileSync, mkdirSync } from 'fs'
-import { join, dirname } from 'path'
+import { readFileSync, existsSync, copyFileSync } from 'fs'
 import iconv from 'iconv-lite'
+import { getDataPath } from '../paths'
 import { ParsedConfig, BlockNameMap, BlockStockMap } from './types'
 
 /** 同花顺配置文件路径 */
 const CONFIG_PATH = 'D:\\software\\同花顺软件\\同花顺\\同花顺\\mx_140877294\\stockblock.ini'
 
 /** 工作目录下的配置文件副本路径 */
-const LOCAL_CONFIG_PATH = join(__dirname, '../../../data/stockblock.ini')
+const LOCAL_CONFIG_PATH = getDataPath('stockblock.ini')
 
 /** 仅保留A股代码的前缀列表 */
 const A_STOCK_PREFIXES = ['17:', '33:']

@@ -62,3 +62,8 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+.closeBtn:hover {
+  background: var(--accent-danger);
+  color: #ffffff;
+}
