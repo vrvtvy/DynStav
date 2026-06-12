@@ -1,0 +1,69 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+}
+
+.menuBar {
+  height: var(--menu-bar-height);
+  flex-shrink: 0;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar {
+  height: 100%;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.main {
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.rightPanel {
+  height: 100%;
+  overflow-y: auto;
+  border-left: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.statusBar {
+  height: var(--status-bar-height);
+  flex-shrink: 0;
+}
+
+.resizer {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.resizer:hover {
+  background: var(--accent-primary);
+  opacity: 0.3;
+}
+
+.resizerRight {
+  right: -2px;
+}
+
+.resizerLeft {
+  left: -2px;
+}

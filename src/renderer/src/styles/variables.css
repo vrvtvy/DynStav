@@ -1,0 +1,34 @@
+:root {
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+
+  /* 字体 */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 14px;
+
+  /* 布局 */
+  --menu-bar-height: 40px;
+  --status-bar-height: 24px;
+  --sidebar-min-width: 200px;
+  --right-panel-min-width: 0px;
+
+  /* 过渡 */
+  --transition-speed: 0.2s;
+}
+
+/* 无障碍色板（色弱友好） */
+:root {
+  --color-blind-safe-1: #0077BB;
+  --color-blind-safe-2: #EE7733;
+  --color-blind-safe-3: #009988;
+  --color-blind-safe-4: #CC3311;
+  --color-blind-safe-5: #33BBEE;
+  --color-blind-safe-6: #EE3377;
+  --color-blind-safe-7: #BBBBBB;
+}

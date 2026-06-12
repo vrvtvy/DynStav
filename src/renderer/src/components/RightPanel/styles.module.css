@@ -1,0 +1,19 @@
+.panel {
+  height: 100%;
+  padding: var(--spacing-md);
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+}
+
+.hint {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
