@@ -2,8 +2,12 @@
 $ErrorActionPreference = 'Stop'
 
 switch ($args[0]) {
-  'dev'     { & "electron-vite" dev }
-  'build'   { & "electron-vite" build }
-  'preview' { & "electron-vite" preview }
-  default   { & "electron-vite" @args }
+  'dev' {
+    Write-Host "正在构建..."
+    & "electron-vite" build
+    Write-Host "正在启动应用..."
+    & "electron" .
+  }
+  'build' { & "electron-vite" build }
+  default { & "electron-vite" @args }
 }

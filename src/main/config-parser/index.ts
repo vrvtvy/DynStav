@@ -1,4 +1,5 @@
-import { readFileSync, existsSync, copyFileSync } from 'fs'
+import { readFileSync, existsSync, copyFileSync, mkdirSync } from 'fs'
+import { dirname } from 'path'
 import iconv from 'iconv-lite'
 import { getDataPath } from '../paths'
 import { ParsedConfig, BlockNameMap, BlockStockMap } from './types'
@@ -14,7 +15,6 @@ const A_STOCK_PREFIXES = ['17:', '33:']
 
 /** 解析配置文件 */
 export function parseConfig(): ParsedConfig {
-  // 确保 data 目录存在
   mkdirSync(dirname(LOCAL_CONFIG_PATH), { recursive: true })
 
   // 若本地没有副本则复制一份

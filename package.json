@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pwsh -NoProfile -File run.ps1 dev",
     "build": "pwsh -NoProfile -File run.ps1 build",
-    "preview": "pwsh -NoProfile -File run.ps1 preview"
+    "start": "electron ."
   },
   "build": {
     "appId": "com.dynstav.app",
