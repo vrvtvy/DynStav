@@ -17,7 +17,8 @@
   --accent-warning: #dcdcaa;
   --accent-danger: #f44747;
 
-  --status-bar-bg: #007acc;
+  --status-bar-bg: #333333;
+  --status-bar-text: #ababab;
   --scrollbar-bg: transparent;
   --scrollbar-thumb: #424242;
 }
