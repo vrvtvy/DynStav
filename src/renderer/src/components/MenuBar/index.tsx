@@ -34,7 +34,7 @@ export default function MenuBar({ syncing, theme, onSync, onToggleTheme }: MenuB
           ─
         </button>
         <button className={styles.winBtn} onClick={() => window.electronAPI.maximizeWindow()} title="最大化">
-          □
+          🗖
         </button>
         <button className={`${styles.winBtn} ${styles.closeBtn}`} onClick={() => window.electronAPI.closeWindow()} title="关闭">
           ✕

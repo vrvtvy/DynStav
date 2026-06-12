@@ -4,9 +4,9 @@
   "description": "动态板块趋势分析可视化 (Dynamic Sector Trend Analysis Visualization)",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "pwsh -NoProfile -File run.ps1 dev",
-    "build": "pwsh -NoProfile -File run.ps1 build",
-    "preview": "pwsh -NoProfile -File run.ps1 preview"
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview"
   },
   "build": {
     "appId": "com.dynstav.app",
