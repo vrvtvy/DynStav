@@ -3,7 +3,7 @@
   align-items: center;
   height: 100%;
   padding: 0 var(--spacing-md);
-  background: var(--accent-primary);
+  background: var(--status-bar-bg);
   color: #ffffff;
   font-size: var(--font-size-sm);
 }

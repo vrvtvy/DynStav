@@ -3,19 +3,21 @@
   --bg-secondary: #f6f8fa;
   --bg-tertiary: #e8ecf0;
   --bg-surface: #ffffff;
-  --bg-hover: #f0f2f5;
+  --bg-hover: #eef0f2;
 
   --text-primary: #1f2328;
   --text-secondary: #656d76;
-  --text-muted: #8b949e;
+  --text-muted: #6e7681;
 
-  --border-color: #d0d7de;
-  --border-light: #e8ecf0;
+  --border-color: #b0b8c0;
+  --border-light: #d0d7de;
 
   --accent-primary: #0969da;
   --accent-success: #1a7f37;
   --accent-warning: #9a6700;
   --accent-danger: #cf222e;
+
+  --status-bar-bg: #24292f;
 
   --scrollbar-bg: transparent;
   --scrollbar-thumb: #c0c5cb;
