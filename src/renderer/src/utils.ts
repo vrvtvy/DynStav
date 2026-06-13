@@ -1,0 +1,26 @@
+export function toDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** 给定交易日数，计算起止日期（跳过周末） */
+export function getTradingDateRange(tradingDays: number): { startDate: string; endDate: string } {
+  const end = new Date()
+  while (end.getDay() === 0 || end.getDay() === 6) {
+    end.setDate(end.getDate() - 1)
+  }
+  const endDate = toDateStr(end)
+
+  const start = new Date(end)
+  let remaining = tradingDays - 1
+  while (remaining > 0) {
+    start.setDate(start.getDate() - 1)
+    if (start.getDay() !== 0 && start.getDay() !== 6) {
+      remaining--
+    }
+  }
+  const startDate = toDateStr(start)
+  return { startDate, endDate }
+}

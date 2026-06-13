@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ThemeType, QueryParams, BlockDailyStats, BlockInfo } from './types'
+import { getTradingDateRange, toDateStr } from './utils'
 import Layout from './components/Layout'
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
@@ -75,20 +76,9 @@ export default function App() {
   }
 
   function handleReset(blockCode: string) {
-    const end = new Date()
-    const endDate = toDateStr(end)
-    const start = new Date()
-    start.setDate(start.getDate() - 7)
-    const startDate = toDateStr(start)
+    const { startDate, endDate } = getTradingDateRange(7)
     setSelectedBlock(blockCode)
     handleSearch({ startDate, endDate, blockCode })
-  }
-
-  function toDateStr(d: Date): string {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
   }
 
   async function handleUpdateSort(codes: string[]) {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { BlockInfo, QueryParams } from '../../types'
+import { getTradingDateRange } from '../../utils'
 import styles from './styles.module.css'
 
 interface SidebarProps {
@@ -35,25 +36,9 @@ export default function Sidebar({
     ? localBlocks.filter(b => b.name.includes(blockNameFilter))
     : localBlocks
 
-  function toDateStr(d: Date): string {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
-
-  function getDateRange(val: string): { startDate: string; endDate: string } {
-    const end = new Date()
-    const endDate = toDateStr(end)
-    const start = new Date()
-    start.setDate(start.getDate() - parseInt(val))
-    const startDate = toDateStr(start)
-    return { startDate, endDate }
-  }
-
   function doSearch(dateVal?: string) {
     const val = dateVal ?? dateRange
-    const { startDate, endDate } = getDateRange(val)
+    const { startDate, endDate } = getTradingDateRange(parseInt(val))
     onSearch({ startDate, endDate, blockCode: selectedBlock || blocks[0]?.code })
   }
 
