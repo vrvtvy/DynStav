@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { parseConfig } from '../config-parser'
+import { getLastTradingDay } from '../trading-calendar'
 import { fetchStockQuotes } from '../data-fetcher'
 import { analyzeBlocks } from '../analyzer'
 import { getRepository } from '../db'
@@ -35,7 +36,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.QUERY_STATS, (_event, params) => {
     return getRepository().queryStats({
       startDate: params.startDate || getDefaultStartDate(),
-      endDate: params.endDate || getTodayStr(),
+      endDate: params.endDate || getRepository().getLatestDate() || getTodayStr(),
       blockCode: params.blockCode
     })
   })
@@ -121,7 +122,7 @@ export function registerIpcHandlers(): void {
 export async function syncAllData(iniPath?: string, force = false): Promise<void> {
   console.log('[IPC] 开始同步数据')
   const config = parseConfig(iniPath)
-  const today = getTodayStr()
+  const tradeDate = await getLastTradingDay()
 
   const metaBlocks = Object.entries(config.blockNames).map(([code, name]) => ({ code, name }))
   getRepository().saveBlockMeta(metaBlocks)
@@ -153,10 +154,10 @@ export async function syncAllData(iniPath?: string, force = false): Promise<void
     }
   }
 
-  const results = analyzeBlocks(config.blockStocks, config.blockNames, quoteMap, today)
+  const results = analyzeBlocks(config.blockStocks, config.blockNames, quoteMap, tradeDate)
   const stats = results.map(r => r.stats)
   getRepository().saveStats(stats)
-  console.log(`[IPC] 数据同步完成: ${stats.length} 个板块`)
+  console.log(`[IPC] 数据同步完成: ${stats.length} 个板块，日期: ${tradeDate}`)
 }
 
 export function getTodayStr(): string {

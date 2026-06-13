@@ -5,9 +5,9 @@ export function toDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/** 给定交易日数，计算起止日期（跳过周末） */
-export function getTradingDateRange(tradingDays: number): { startDate: string; endDate: string } {
-  const end = new Date()
+/** 给定交易日数，计算起止日期（跳过周末，可选传入最新交易日替代 today） */
+export function getTradingDateRange(tradingDays: number, latestDate?: string): { startDate: string; endDate: string } {
+  const end = latestDate ? new Date(latestDate) : new Date()
   while (end.getDay() === 0 || end.getDay() === 6) {
     end.setDate(end.getDate() - 1)
   }

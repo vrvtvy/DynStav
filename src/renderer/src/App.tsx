@@ -103,7 +103,7 @@ export default function App() {
   }
 
   function handleReset(blockCode: string) {
-    const { startDate, endDate } = getTradingDateRange(7)
+    const { startDate, endDate } = getTradingDateRange(7, latestDate)
     setSelectedBlock(blockCode)
     handleSearch({ startDate, endDate, blockCode })
   }
@@ -149,6 +149,7 @@ export default function App() {
             onBlockClick={handleBlockClick}
             onReset={handleReset}
             onUpdateSort={handleUpdateSort}
+            latestDate={latestDate}
           />
         }
         main={
