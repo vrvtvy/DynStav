@@ -16,4 +16,10 @@ export interface DataRepository {
 
   /** 获取最新数据日期 */
   getLatestDate(): string | null
+
+  /** 保存/同步板块元数据（名称+排序） */
+  saveBlockMeta(blocks: { code: string; name: string }[]): void
+
+  /** 更新板块排序 */
+  updateBlockSort(codes: string[]): void
 }

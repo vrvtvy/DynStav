@@ -15,6 +15,7 @@ const A_STOCK_PREFIXES = ['17:', '33:']
 
 /** 解析配置文件 */
 export function parseConfig(): ParsedConfig {
+  console.log('[ConfigParser] 开始解析同花顺配置文件')
   mkdirSync(dirname(LOCAL_CONFIG_PATH), { recursive: true })
 
   // 若本地没有副本则复制一份
@@ -67,6 +68,7 @@ export function parseConfig(): ParsedConfig {
     }
   }
 
+  console.log(`[ConfigParser] 解析完成: ${Object.keys(blockNames).length} 个板块, ${allStockSet.size} 只A股`)
   return {
     blockNames,
     blockStocks,

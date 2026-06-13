@@ -14,6 +14,7 @@ export function analyzeBlocks(
   quotes: Record<string, { price: number; changePercent: number; amount: number; turnoverRate: number }>,
   date: string
 ): AnalysisResult[] {
+  console.log(`[Analyzer] 开始分析 ${Object.keys(blockStocks).length} 个板块`)
   const results: AnalysisResult[] = []
 
   for (const [blockCode, stockCodes] of Object.entries(blockStocks)) {
@@ -53,6 +54,7 @@ export function analyzeBlocks(
     })
   }
 
+  console.log(`[Analyzer] 分析完成: ${results.length} 个板块有有效数据`)
   return results
 }
 

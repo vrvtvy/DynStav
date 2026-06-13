@@ -74,6 +74,31 @@ export default function App() {
     handleSearch({ ...queryParams, blockCode })
   }
 
+  function handleReset(blockCode: string) {
+    const end = new Date()
+    const endDate = toDateStr(end)
+    const start = new Date()
+    start.setDate(start.getDate() - 7)
+    const startDate = toDateStr(start)
+    setSelectedBlock(blockCode)
+    handleSearch({ startDate, endDate, blockCode })
+  }
+
+  function toDateStr(d: Date): string {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  async function handleUpdateSort(codes: string[]) {
+    await window.electronAPI.updateBlockSort(codes)
+    setBlocks(prev => {
+      const order = new Map(codes.map((c, i) => [c, codes.length - i]))
+      return [...prev].sort((a, b) => (order.get(b.code) ?? 0) - (order.get(a.code) ?? 0))
+    })
+  }
+
   return (
     <div className={styles.app}>
       <Layout
@@ -96,7 +121,8 @@ export default function App() {
             selectedBlock={selectedBlock}
             onSearch={handleSearch}
             onBlockClick={handleBlockClick}
-            onReset={() => setSelectedBlock('')}
+            onReset={handleReset}
+            onUpdateSort={handleUpdateSort}
           />
         }
         main={

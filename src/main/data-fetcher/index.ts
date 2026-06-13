@@ -19,8 +19,8 @@ interface StockQuote {
  * 支持一次查询多只股票，用逗号分隔
  */
 export async function fetchStockQuotes(codes: string[]): Promise<StockQuote[]> {
+  console.log(`[DataFetcher] 开始获取行情，共 ${codes.length} 只股票`)
   const results: StockQuote[] = []
-  // 东方财富接口建议每次不超过500只
   const batchSize = 300
 
   for (let i = 0; i < codes.length; i += batchSize) {
@@ -28,12 +28,13 @@ export async function fetchStockQuotes(codes: string[]): Promise<StockQuote[]> {
     const batchResult = await fetchBatch(batch)
     results.push(...batchResult)
 
-    // 避免请求过快，延迟200ms
+      console.log(`[DataFetcher] 批次 ${Math.floor(i / batchSize) + 1}/${Math.ceil(codes.length / batchSize)}，${batch.length} 只`)
     if (i + batchSize < codes.length) {
       await delay(200)
     }
   }
 
+  console.log(`[DataFetcher] 全部获取完成，共 ${results.length} 只股票`)
   return results
 }
 
@@ -54,15 +55,17 @@ async function fetchBatch(codes: string[]): Promise<StockQuote[]> {
 
     if (!data?.data?.diff) return []
 
-    return data.data.diff.map((item: any) => ({
+    const batchResult = data.data.diff.map((item: any) => ({
       code: String(item.f12),
       price: item.f2 ?? 0,
       changePercent: item.f3 ?? 0,
-      amount: item.f6 ?? 0,
+      amount: (item.f6 ?? 0) / 100000000,
       turnoverRate: item.f8 ?? 0
     }))
+    console.log(`[DataFetcher] 批次获取 ${batchResult.length} 只股票成功`)
+    return batchResult
   } catch (error) {
-    console.error('获取股票数据失败:', error)
+    console.error(`[DataFetcher] 获取股票数据失败:`, error)
     return []
   }
 }

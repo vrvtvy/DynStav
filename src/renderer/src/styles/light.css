@@ -20,6 +20,9 @@
   --status-bar-bg: #f6f8fa;
   --status-bar-text: #656d76;
 
+  --color-up: #cf222e;
+  --color-down: #0969da;
+
   --scrollbar-bg: transparent;
-  --scrollbar-thumb: #c0c5cb;
+  --scrollbar-thumb: #b0b8c0;
 }

@@ -19,6 +19,9 @@
 
   --status-bar-bg: #333333;
   --status-bar-text: #ababab;
+  --color-up: #f44747;
+  --color-down: #569cd6;
+
   --scrollbar-bg: transparent;
-  --scrollbar-thumb: #424242;
+  --scrollbar-thumb: #555555;
 }

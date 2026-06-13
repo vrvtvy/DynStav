@@ -4,6 +4,12 @@ export interface BlockInfo {
   code: string
   /** 板块名称 */
   name: string
+  /** 排序权重（越大越靠前） */
+  sortOrder?: number
+  /** 股票数量（最近一次统计） */
+  stockCount?: number
+  /** 平均涨跌幅（最近一次统计） */
+  avgChangePercent?: number
 }
 
 /** 板块每日统计数据 */
@@ -57,5 +63,7 @@ export const IPC_CHANNELS = {
   SYNC_DATA: 'sync-data',
   SYNC_PROGRESS: 'sync-progress',
   SYNC_DONE: 'sync-done',
-  GET_LATEST_DATE: 'get-latest-date'
+  GET_LATEST_DATE: 'get-latest-date',
+  UPDATE_BLOCK_SORT: 'update-block-sort',
+  SYNC_BLOCK_META: 'sync-block-meta'
 } as const

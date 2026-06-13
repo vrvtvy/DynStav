@@ -4,6 +4,13 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, syncAllData } from './ipc'
 import { initDatabase } from './db'
 
+const _log = console.log
+const _error = console.error
+const _warn = console.warn
+console.log = (...args: any[]) => { try { _log.apply(console, args) } catch {} }
+console.error = (...args: any[]) => { try { _error.apply(console, args) } catch {} }
+console.warn = (...args: any[]) => { try { _warn.apply(console, args) } catch {} }
+
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
@@ -15,6 +22,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
+    icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -37,20 +45,19 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // 初始化数据库
   await initDatabase()
+  console.log('[App] 数据库初始化完成')
 
-  // 注册 IPC 处理器
   registerIpcHandlers()
 
   createWindow()
 
-  // 启动时自动获取数据
   try {
     await syncAllData()
-    mainWindow?.webContents.send('sync-done')
-  } catch {
-    console.error('启动时数据同步失败，可稍后手动同步')
+    const win = BrowserWindow.getFocusedWindow()
+    win?.webContents.send('sync-done')
+  } catch (e: any) {
+    console.error('启动时数据同步失败', e?.message ?? e)
   }
 
   app.on('activate', () => {

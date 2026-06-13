@@ -23,7 +23,10 @@ const electronAPI = {
   onSyncDone: (callback: () => void) => {
     ipcRenderer.on(IPC_CHANNELS.SYNC_DONE, callback)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.SYNC_DONE, callback)
-  }
+  },
+
+  updateBlockSort: (codes: string[]): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.UPDATE_BLOCK_SORT, codes)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

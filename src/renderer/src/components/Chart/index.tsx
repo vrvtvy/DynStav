@@ -18,6 +18,18 @@ const METRICS = [
   { key: 'avgTurnoverRate', label: '平均换手率', unit: '%', color: '#EE3377', type: 'line' as const }
 ]
 
+const AXIS_GROUPS = [
+  ['avgChangePercent', 'avgPrice'],
+  ['avgAmount', 'avgTurnoverRate', 'stockCount'],
+  ['totalAmount']
+]
+
+const AXIS_COLORS = ['#0077BB', '#CC3311', '#33BBEE']
+
+function getAxisIndex(metricKey: string): number {
+  return AXIS_GROUPS.findIndex(g => g.includes(metricKey))
+}
+
 export default function ChartView({ stats, selectedBlock, blocks }: ChartViewProps) {
   const [highlighted, setHighlighted] = useState('平均涨跌幅')
   const currentBlock = blocks.find(b => b.code === selectedBlock)
@@ -31,9 +43,10 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
     if (!stats.length) return {}
 
     const series: any[] = []
+    const hlMetric = METRICS.find(m => m.label === highlighted)
 
-    METRICS.forEach((metric, idx) => {
-      const isHighlighted = metric.label === highlighted
+    METRICS.forEach((metric) => {
+      const isHL = metric.label === highlighted
       const data = dates.map(date => {
         const item = stats.find(s => s.date === date)
         return item ? Number((item[metric.key] as number).toFixed(2)) : null
@@ -42,20 +55,20 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
       series.push({
         name: metric.label,
         type: metric.type,
-        yAxisIndex: idx < 3 ? 0 : 1,
+        yAxisIndex: getAxisIndex(metric.key),
         data,
         smooth: metric.type === 'line',
         symbol: 'circle',
-        symbolSize: isHighlighted ? 8 : 4,
+        symbolSize: isHL ? 8 : 4,
         lineStyle: {
-          width: isHighlighted ? 3 : 1,
+          width: isHL ? 3 : 1,
           color: metric.color
         },
         itemStyle: {
           color: metric.color,
-          opacity: isHighlighted ? 1 : 0.35
+          opacity: isHL ? 1 : 0.35
         },
-        areaStyle: isHighlighted && metric.type === 'line' ? {
+        areaStyle: isHL && metric.type === 'line' ? {
           color: metric.color,
           opacity: 0.1
         } : undefined,
@@ -70,6 +83,8 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
       })
     })
 
+    const hlAxisIdx = hlMetric ? getAxisIndex(hlMetric.key) : 0
+
     return {
       tooltip: {
         trigger: 'axis',
@@ -80,7 +95,9 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
           let tip = `<strong>${params[0].axisValue}</strong><br/>`
           for (const p of params) {
             const m = METRICS.find(x => x.label === p.seriesName)
-            tip += `${p.marker} ${p.seriesName}: ${p.value}${m ? m.unit : ''}<br/>`
+            if (p.value != null) {
+              tip += `${p.marker} ${p.seriesName}: ${p.value}${m ? m.unit : ''}<br/>`
+            }
           }
           return tip
         }
@@ -98,12 +115,7 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
         textStyle: { color: 'var(--text-primary)', fontSize: 12 },
         selectedMode: false
       },
-      grid: {
-        left: 55,
-        right: 55,
-        top: 50,
-        bottom: 30
-      },
+      grid: { left: 55, right: 105, top: 50, bottom: 30 },
       xAxis: {
         type: 'category',
         data: dates,
@@ -113,17 +125,27 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
       yAxis: [
         {
           type: 'value',
-          name: METRICS.slice(0, 3).find(m => m.label === highlighted)?.label || '',
-          nameTextStyle: { color: METRICS.slice(0, 3).find(m => m.label === highlighted)?.color || '#0077BB' },
-          axisLine: { lineStyle: { color: '#0077BB' } },
+          name: hlAxisIdx === 0 ? hlMetric?.label : '',
+          nameTextStyle: { color: hlAxisIdx === 0 ? hlMetric?.color : AXIS_COLORS[0] },
+          axisLine: { lineStyle: { color: AXIS_COLORS[0] } },
           axisLabel: { color: 'var(--text-secondary)', fontSize: 11 },
           splitLine: { lineStyle: { color: 'var(--border-light)', type: 'dashed' } }
         },
         {
           type: 'value',
-          name: METRICS.slice(3).find(m => m.label === highlighted)?.label || '',
-          nameTextStyle: { color: METRICS.slice(3).find(m => m.label === highlighted)?.color || '#CC3311' },
-          axisLine: { lineStyle: { color: '#CC3311' } },
+          name: hlAxisIdx === 1 ? hlMetric?.label : '',
+          nameTextStyle: { color: hlAxisIdx === 1 ? hlMetric?.color : AXIS_COLORS[1] },
+          axisLine: { lineStyle: { color: AXIS_COLORS[1] } },
+          axisLabel: { color: 'var(--text-secondary)', fontSize: 11 },
+          splitLine: { show: false }
+        },
+        {
+          type: 'value',
+          name: '总成交额',
+          nameTextStyle: { color: AXIS_COLORS[2] },
+          position: 'right',
+          offset: 55,
+          axisLine: { lineStyle: { color: AXIS_COLORS[2] } },
           axisLabel: { color: 'var(--text-secondary)', fontSize: 11 },
           splitLine: { show: false }
         }
@@ -132,8 +154,8 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
     }
   }, [stats, dates, highlighted])
 
-  const handleLegendClick = useCallback((params: any) => {
-    if (params.name) {
+  const handleClick = useCallback((params: any) => {
+    if (params.componentType === 'legend' && params.name) {
       setHighlighted(params.name)
     }
   }, [])
@@ -156,12 +178,7 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
             option={option}
             style={{ height: '100%', width: '100%' }}
             onEvents={{
-              legendselectchanged: handleLegendClick,
-              click: (params: any) => {
-                if (params.componentType === 'legend') {
-                  handleLegendClick(params)
-                }
-              }
+              click: handleClick
             }}
           />
         </div>

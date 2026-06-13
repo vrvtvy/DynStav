@@ -11,6 +11,7 @@ declare global {
       syncData: () => Promise<void>
       getLatestDate: () => Promise<string>
       onSyncDone: (callback: () => void) => () => void
+      updateBlockSort: (codes: string[]) => Promise<void>
     }
   }
 }

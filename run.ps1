@@ -9,5 +9,11 @@ switch ($args[0]) {
     & "electron" .
   }
   'build' { & "electron-vite" build }
+  'start' {
+    Write-Host "正在构建..."
+    & "electron-vite" build
+    Write-Host "正在启动应用..."
+    & "electron" .
+  }
   default { & "electron-vite" @args }
 }

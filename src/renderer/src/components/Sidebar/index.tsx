@@ -7,7 +7,8 @@ interface SidebarProps {
   selectedBlock: string
   onSearch: (params: QueryParams) => void
   onBlockClick: (blockCode: string) => void
-  onReset: () => void
+  onReset: (blockCode: string) => void
+  onUpdateSort?: (codes: string[]) => void
 }
 
 export default function Sidebar({
@@ -15,85 +16,129 @@ export default function Sidebar({
   selectedBlock,
   onSearch,
   onBlockClick,
-  onReset
+  onReset,
+  onUpdateSort
 }: SidebarProps) {
   const [blockNameFilter, setBlockNameFilter] = useState('')
   const [dateRange, setDateRange] = useState('7')
+  const [localBlocks, setLocalBlocks] = useState<BlockInfo[]>(blocks)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const filteredBlocks = blockNameFilter
-    ? blocks.filter(b => b.name.includes(blockNameFilter))
-    : blocks
-
   useEffect(() => {
-    // 默认触发一次搜索
-    if (blocks.length > 0) {
-      handleSearch()
+    if (dragIdx === null) {
+      setLocalBlocks(blocks)
     }
-  }, [blocks])
+  }, [blocks, dragIdx])
 
-  function getDateRange(dateStr: string): { startDate: string; endDate: string } {
+  const filteredBlocks = blockNameFilter
+    ? localBlocks.filter(b => b.name.includes(blockNameFilter))
+    : localBlocks
+
+  function toDateStr(d: Date): string {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  function getDateRange(val: string): { startDate: string; endDate: string } {
     const end = new Date()
-    const endDate = end.toISOString().slice(0, 10)
+    const endDate = toDateStr(end)
     const start = new Date()
-    start.setDate(start.getDate() - parseInt(dateStr))
-    const startDate = start.toISOString().slice(0, 10)
+    start.setDate(start.getDate() - parseInt(val))
+    const startDate = toDateStr(start)
     return { startDate, endDate }
   }
 
-  function handleSearch() {
-    const blockCode = blocks.find(b => b.name === blockNameFilter)?.code || blocks[0]?.code || ''
-    const { startDate, endDate } = getDateRange(dateRange)
-    onSearch({ startDate, endDate, blockCode })
+  function doSearch(dateVal?: string) {
+    const val = dateVal ?? dateRange
+    const { startDate, endDate } = getDateRange(val)
+    onSearch({ startDate, endDate, blockCode: selectedBlock || blocks[0]?.code })
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') handleSearch()
+  useEffect(() => {
+    if (blocks.length > 0) {
+      doSearch()
+    }
+  }, [blocks])
+
+  function handleDateChange(val: string) {
+    setDateRange(val)
+    doSearch(val)
+  }
+
+  function handleFilterChange(val: string) {
+    setBlockNameFilter(val)
+    doSearch()
+  }
+
+  function handleClearFilter() {
+    setBlockNameFilter('')
+    searchRef.current?.focus()
+    doSearch()
   }
 
   function handleReset() {
     setBlockNameFilter('')
     setDateRange('7')
-    onReset()
+    const first = blocks[0]?.code || ''
+    onReset(first)
+  }
+
+  function handleDragStart(index: number) {
+    setDragIdx(index)
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    if (dragIdx === null || dragIdx === index) return
+    const reordered = [...localBlocks]
+    const [moved] = reordered.splice(dragIdx, 1)
+    reordered.splice(index, 0, moved)
+    setLocalBlocks(reordered)
+    setDragIdx(index)
+  }
+
+  function handleDragEnd() {
+    setDragIdx(null)
+    const codes = localBlocks.map(b => b.code)
+    onUpdateSort?.(codes)
   }
 
   return (
     <div className={styles.sidebar}>
       <div className={styles.filters}>
-        <label className={styles.label}>
-          日期区间
+        <div className={styles.dateRow}>
           <select
             className={styles.select}
             value={dateRange}
-            onChange={e => setDateRange(e.target.value)}
+            onChange={e => handleDateChange(e.target.value)}
           >
-            <option value="3">最近3个交易日</option>
-            <option value="7">最近7个交易日</option>
-            <option value="15">最近15个交易日</option>
-            <option value="30">最近30个交易日</option>
+            <option value="3">最近3日</option>
+            <option value="7">最近7日</option>
+            <option value="15">最近15日</option>
+            <option value="30">最近30日</option>
           </select>
-        </label>
+          <button className={styles.resetBtn} onClick={handleReset} title="重置">
+            ↺
+          </button>
+        </div>
 
-        <label className={styles.label}>
-          板块名称
+        <div className={styles.searchRow}>
           <input
             ref={searchRef}
             className={styles.input}
             type="text"
-            placeholder="输入板块名称搜索..."
+            placeholder="搜索板块..."
             value={blockNameFilter}
-            onChange={e => setBlockNameFilter(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onChange={e => handleFilterChange(e.target.value)}
           />
-        </label>
-
-        <div className={styles.btnGroup}>
-          <button className={styles.searchBtn} onClick={handleSearch} title="搜索">
-            🔍
-          </button>
-          <button className={styles.resetBtn} onClick={handleReset} title="重置">
-            ↺
-          </button>
+          {blockNameFilter && (
+            <button className={styles.clearBtn} onClick={handleClearFilter} title="清除搜索">
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
@@ -103,13 +148,25 @@ export default function Sidebar({
         <div className={styles.blockListTitle}>
           板块列表 ({filteredBlocks.length})
         </div>
-        {filteredBlocks.map(block => (
+        {filteredBlocks.map((block, idx) => (
           <div
             key={block.code}
-            className={`${styles.blockItem} ${selectedBlock === block.code ? styles.blockItemActive : ''}`}
+            className={`${styles.blockItem} ${selectedBlock === block.code ? styles.blockItemActive : ''} ${dragIdx === idx ? styles.dragging : ''}`}
+            draggable
+            onDragStart={() => handleDragStart(idx)}
+            onDragOver={e => handleDragOver(e, idx)}
+            onDragEnd={handleDragEnd}
             onClick={() => onBlockClick(block.code)}
           >
-            {block.name}
+            <span className={styles.blockItemName}>{block.name}</span>
+            <span className={styles.blockItemMeta}>
+              {block.stockCount != null && <span>{block.stockCount}只</span>}
+              {block.avgChangePercent != null && (
+                <span className={block.avgChangePercent >= 0 ? styles.up : styles.down}>
+                  {block.avgChangePercent >= 0 ? '+' : ''}{block.avgChangePercent.toFixed(2)}%
+                </span>
+              )}
+            </span>
           </div>
         ))}
       </div>

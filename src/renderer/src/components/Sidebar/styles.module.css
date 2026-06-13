@@ -11,12 +11,44 @@
   gap: var(--spacing-sm);
 }
 
-.label {
+.dateRow {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  gap: var(--spacing-xs);
+}
+
+.dateRow .select {
+  flex: 1;
+}
+
+.searchRow {
+  display: flex;
+  gap: var(--spacing-xs);
+  position: relative;
+}
+
+.searchRow .input {
+  flex: 1;
+  padding-right: 28px;
+}
+
+.clearBtn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.clearBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .select,
@@ -37,16 +69,8 @@
   border-color: var(--accent-primary);
 }
 
-.btnGroup {
-  display: flex;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-xs);
-}
-
-.searchBtn,
 .resetBtn {
-  flex: 1;
-  padding: 6px;
+  padding: 6px 10px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-surface);
@@ -54,9 +78,9 @@
   cursor: pointer;
   font-size: 14px;
   transition: background var(--transition-speed);
+  white-space: nowrap;
 }
 
-.searchBtn:hover,
 .resetBtn:hover {
   background: var(--bg-hover);
 }
@@ -70,11 +94,6 @@
 .blockList {
   flex: 1;
   overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.blockList::-webkit-scrollbar {
-  display: none;
 }
 
 .blockListTitle {
@@ -85,20 +104,62 @@
 }
 
 .blockItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 6px 8px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
   transition: background var(--transition-speed);
   margin-bottom: 2px;
+  user-select: none;
 }
 
 .blockItem:hover {
   background: var(--bg-hover);
 }
 
+.blockItem:active {
+  cursor: grabbing;
+}
+
 .blockItemActive {
   background: var(--accent-primary);
   color: #ffffff;
+}
+
+.blockItemActive .blockItemMeta {
+  color: rgba(255,255,255,0.7);
+}
+
+.dragging {
+  opacity: 0.5;
+  border: 1px dashed var(--accent-primary);
+}
+
+.blockItemName {
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.blockItemMeta {
+  display: flex;
+  gap: var(--spacing-sm);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: var(--spacing-sm);
+}
+
+.up {
+  color: var(--color-up);
+}
+
+.down {
+  color: var(--color-down);
 }
