@@ -4,6 +4,7 @@ import { join } from 'path'
 import { app } from 'electron'
 import { getDataPath } from '../paths'
 import { BlockDailyStats, BlockInfo, QueryParams } from '../../renderer/src/types'
+import log from 'electron-log/main'
 import { DataRepository } from './interface'
 
 let SQL: SqlJsStatic
@@ -177,7 +178,7 @@ export class SqliteRepository implements DataRepository {
 
     sql += ' ORDER BY date ASC'
 
-    console.log('[Debug] SQL:', sql, 'binds:', JSON.stringify(binds))
+    log.debug('queryStats SQL:', sql.replace(/\n\s*/g, ' '), 'binds:', binds)
 
     const stmt = this.db.prepare(sql)
     stmt.bind(binds)

@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
+import log from 'electron-log/main'
 import { parseConfig } from '../config-parser'
 import { getLastTradingDay } from '../trading-calendar'
 import { fetchStockQuotes } from '../data-fetcher'
@@ -37,7 +38,7 @@ export function registerIpcHandlers(): void {
     const startDate = params.startDate || getDefaultStartDate()
     const endDate = params.endDate || getRepository().getLatestDate() || getTodayStr()
     const blockCode = params.blockCode
-    console.log('[Debug] QUERY_STATS params:', JSON.stringify({ startDate, endDate, blockCode }))
+    log.debug('QUERY_STATS → queryStats params:', { startDate, endDate, blockCode })
     return getRepository().queryStats({ startDate, endDate, blockCode })
   })
 
