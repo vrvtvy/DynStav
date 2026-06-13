@@ -9,6 +9,7 @@ import RightPanel from './components/RightPanel'
 import StatusBar from './components/StatusBar'
 import Welcome from './components/Welcome'
 import styles from './App.module.css'
+import log from 'electron-log/renderer'
 
 export default function App() {
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null)
@@ -80,10 +81,10 @@ export default function App() {
   }
 
   async function handleSearch(params: QueryParams) {
-    console.log('[Debug] handleSearch params:', JSON.stringify(params))
+    log.debug('handleSearch params:', JSON.stringify(params))
     setQueryParams(params)
     const result = await window.electronAPI.queryStats(params)
-    console.log('[Debug] handleSearch result count:', result.length)
+    log.debug('handleSearch result count:', result.length)
     setStats(result)
   }
 

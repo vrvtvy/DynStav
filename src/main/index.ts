@@ -1,16 +1,11 @@
 import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import { join } from 'path'
+import log from 'electron-log/main'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerIpcHandlers, syncAllData } from './ipc'
 import { initDatabase } from './db'
 import { loadConfig, saveConfig } from './config'
-
-const _log = console.log
-const _error = console.error
-const _warn = console.warn
-console.log = (...args: any[]) => { try { _log.apply(console, args) } catch {} }
-console.error = (...args: any[]) => { try { _error.apply(console, args) } catch {} }
-console.warn = (...args: any[]) => { try { _warn.apply(console, args) } catch {} }
+import { getAppDataDir } from './paths'
 
 let mainWindow: BrowserWindow | null = null
 let boundsTimer: NodeJS.Timeout | null = null
@@ -81,6 +76,11 @@ function createWelcomeWindow(theme?: string): void {
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.dynstav')
+
+  log.initialize()
+  log.transports.console.level = 'debug'
+  log.transports.file.resolvePath = () => join(getAppDataDir(), 'logs', 'main.log')
+  Object.assign(console, log.functions)
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
