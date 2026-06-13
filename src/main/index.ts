@@ -30,14 +30,16 @@ function getDefaultRestoreBounds(): { x: number; y: number; width: number; heigh
   return { x: Math.round((sw - w) / 2), y: Math.round((sh - h) / 2), width: w, height: h }
 }
 
-function createWelcomeWindow(): void {
+function createWelcomeWindow(theme?: string): void {
+  const bgColor = theme === 'light' ? '#ffffff' : '#1e1e1e'
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({
     width: Math.round(sw * 0.7),
     height: Math.round(sh * 0.7),
     minWidth: 600,
     minHeight: 440,
-    show: false,
+    show: true,
+    backgroundColor: bgColor,
     frame: false,
     titleBarStyle: 'hidden',
     icon: join(__dirname, '../../resources/icon.png'),
@@ -47,10 +49,6 @@ function createWelcomeWindow(): void {
       contextIsolation: true,
       nodeIntegration: false
     }
-  })
-
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
   })
 
   // 移动/缩放时保存窗口尺寸位置（非最大化状态）
@@ -96,9 +94,9 @@ app.whenReady().then(async () => {
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
     return win?.isMaximized() ?? false
   })
-  createWelcomeWindow()
-
   const config = loadConfig()
+  createWelcomeWindow(config.theme)
+
   console.log('[App] 配置加载完成, theme:', config.theme, 'thsUserDir:', config.thsUserDir)
 
   // 恢复上次窗口状态

@@ -1,5 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+import { homedir } from 'os'
 import { IPC_CHANNELS, BlockInfo, BlockDailyStats, QueryParams, AppConfig, ThsUserDirEntry } from '../renderer/src/types'
+
+// 在首次绘制前设置页面背景色，消灭白闪
+const cfgPath = join(homedir(), '.dynstav', 'config.json')
+if (existsSync(cfgPath)) {
+  try {
+    const cfg = JSON.parse(readFileSync(cfgPath, 'utf-8'))
+    if (cfg.theme === 'light') document.documentElement.style.backgroundColor = '#ffffff'
+  } catch {}
+}
 
 const electronAPI = {
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
