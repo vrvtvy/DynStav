@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ThemeType, QueryParams, BlockDailyStats, BlockInfo } from './types'
-import { getTradingDateRange, toDateStr } from './utils'
+import { getTradingDateRange } from './utils'
 import Layout from './components/Layout'
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
 import ChartView from './components/Chart'
 import RightPanel from './components/RightPanel'
 import StatusBar from './components/StatusBar'
+import Welcome from './components/Welcome'
 import styles from './App.module.css'
 
 export default function App() {
+  const [setupComplete, setSetupComplete] = useState<boolean | null>(null)
   const [theme, setTheme] = useState<ThemeType>('dark')
   const [blocks, setBlocks] = useState<BlockInfo[]>([])
   const [selectedBlock, setSelectedBlock] = useState<string>('')
@@ -21,8 +23,27 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [rightPanelWidth, setRightPanelWidth] = useState(0)
 
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+  useEffect(() => {
+    window.electronAPI.isFirstRun().then(first => {
+      setSetupComplete(!first)
+    })
+  }, [])
+
+  useEffect(() => {
+    const unsub = window.electronAPI.onConfigLoaded((t) => {
+      setTheme(t as ThemeType)
+    })
+    return unsub
+  }, [])
+
+  const toggleTheme = useCallback(async () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      window.electronAPI.getConfig().then(config => {
+        window.electronAPI.saveConfig({ ...config, theme: next })
+      })
+      return next
+    })
   }, [])
 
   useEffect(() => {
@@ -30,9 +51,11 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
-    loadBlocks()
-    loadLatestDate()
-  }, [])
+    if (setupComplete) {
+      loadBlocks()
+      loadLatestDate()
+    }
+  }, [setupComplete])
 
   function showToast(msg: string) {
     setToast(msg)
@@ -88,6 +111,13 @@ export default function App() {
       return [...prev].sort((a, b) => (order.get(b.code) ?? 0) - (order.get(a.code) ?? 0))
     })
   }
+
+  function handleSetupComplete() {
+    setSetupComplete(true)
+  }
+
+  if (setupComplete === null) return null
+  if (!setupComplete) return <Welcome onComplete={handleSetupComplete} />
 
   return (
     <div className={styles.app}>

@@ -1,29 +1,37 @@
-import { readFileSync, existsSync, copyFileSync, mkdirSync } from 'fs'
+import { readFileSync, existsSync, copyFileSync } from 'fs'
 import { dirname } from 'path'
 import iconv from 'iconv-lite'
 import { getDataPath } from '../paths'
 import { ParsedConfig, BlockNameMap, BlockStockMap } from './types'
 
-/** 同花顺配置文件路径 */
-const CONFIG_PATH = 'D:\\software\\同花顺软件\\同花顺\\同花顺\\mx_140877294\\stockblock.ini'
-
-/** 工作目录下的配置文件副本路径 */
-const LOCAL_CONFIG_PATH = getDataPath('stockblock.ini')
-
-/** 仅保留A股代码的前缀列表 */
 const A_STOCK_PREFIXES = ['17:', '33:']
 
-/** 解析配置文件 */
-export function parseConfig(): ParsedConfig {
-  console.log('[ConfigParser] 开始解析同花顺配置文件')
-  mkdirSync(dirname(LOCAL_CONFIG_PATH), { recursive: true })
+/** 本地的配置文件副本路径 */
+function getLocalIniPath(): string {
+  return getDataPath('stockblock.ini')
+}
 
-  // 若本地没有副本则复制一份
-  if (!existsSync(LOCAL_CONFIG_PATH)) {
-    copyFileSync(CONFIG_PATH, LOCAL_CONFIG_PATH)
+/**
+ * 解析同花顺配置文件
+ * @param sourceIniPath 源文件路径（来自用户配置）
+ */
+export function parseConfig(sourceIniPath?: string | null): ParsedConfig {
+  console.log('[ConfigParser] 开始解析同花顺配置文件')
+
+  const localPath = getLocalIniPath()
+  const srcPath = sourceIniPath || localPath
+
+  // 若本地没有副本且源文件存在则复制
+  if (!existsSync(localPath) && existsSync(srcPath)) {
+    copyFileSync(srcPath, localPath)
   }
 
-  const raw = readFileSync(LOCAL_CONFIG_PATH)
+  if (!existsSync(localPath)) {
+    console.error('[ConfigParser] 配置文件不存在:', localPath)
+    return { blockNames: {}, blockStocks: {}, allAStockCodes: [] }
+  }
+
+  const raw = readFileSync(localPath)
   const content = iconv.decode(raw, 'gb18030')
   const lines = content.split(/\r?\n/)
 
@@ -37,7 +45,6 @@ export function parseConfig(): ParsedConfig {
     const line = rawLine.trim()
     if (!line) continue
 
-    // 识别区块
     if (line.startsWith('[') && line.endsWith(']')) {
       currentSection = line.slice(1, -1)
       continue
@@ -57,7 +64,6 @@ export function parseConfig(): ParsedConfig {
       if (eqIdx > 0) {
         const key = line.slice(0, eqIdx).trim()
         const value = line.slice(eqIdx + 1).trim()
-        // 只解析在 BLOCK_NAME_MAP_TABLE 中定义的板块
         if (blockNames[key]) {
           const stocks = parseStockCodes(value)
           const aStocks = filterAStocks(stocks)
@@ -76,12 +82,10 @@ export function parseConfig(): ParsedConfig {
   }
 }
 
-/** 解析股票代码列表 */
 function parseStockCodes(value: string): string[] {
   return value.split(',').filter(s => s.includes(':')).map(s => s.trim())
 }
 
-/** 过滤出A股股票代码，去掉前缀只保留纯代码 */
 function filterAStocks(stocks: string[]): string[] {
   return stocks
     .filter(s => A_STOCK_PREFIXES.some(p => s.startsWith(p)))

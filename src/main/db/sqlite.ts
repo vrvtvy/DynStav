@@ -1,5 +1,7 @@
 import initSqlJs, { Database as SqlJsDatabase, SqlJsStatic } from 'sql.js'
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'fs'
+import { join } from 'path'
+import { app } from 'electron'
 import { getDataPath } from '../paths'
 import { BlockDailyStats, BlockInfo, QueryParams } from '../../renderer/src/types'
 import { DataRepository } from './interface'
@@ -11,7 +13,14 @@ export class SqliteRepository implements DataRepository {
   private dbPath: string
 
   constructor() {
-    this.dbPath = getDataPath('dynstav.db')
+    // 旧→新路径迁移
+    const oldPath = join(app.getAppPath(), 'data', 'dynstav.db')
+    const newPath = getDataPath('dynstav.db')
+    if (existsSync(oldPath) && !existsSync(newPath)) {
+      console.log('[DB] 迁移旧数据库到新路径:', newPath)
+      copyFileSync(oldPath, newPath)
+    }
+    this.dbPath = newPath
   }
 
   async init(): Promise<void> {

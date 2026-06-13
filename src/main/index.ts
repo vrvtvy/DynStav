@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerIpcHandlers, syncAllData } from './ipc'
 import { initDatabase } from './db'
+import { loadConfig, saveConfig } from './config'
 
 const _log = console.log
 const _error = console.error
@@ -12,13 +13,30 @@ console.error = (...args: any[]) => { try { _error.apply(console, args) } catch 
 console.warn = (...args: any[]) => { try { _warn.apply(console, args) } catch {} }
 
 let mainWindow: BrowserWindow | null = null
+let boundsTimer: NodeJS.Timeout | null = null
 
-function createWindow(): void {
+function saveBoundsImmediate(): void {
+  if (!mainWindow) return
+  const bounds = mainWindow.getBounds()
+  const config = loadConfig()
+  config.windowBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+  saveConfig(config)
+}
+
+function getDefaultRestoreBounds(): { x: number; y: number; width: number; height: number } {
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
+  const w = Math.round(sw * 0.7)
+  const h = Math.round(sh * 0.7)
+  return { x: Math.round((sw - w) / 2), y: Math.round((sh - h) / 2), width: w, height: h }
+}
+
+function createWelcomeWindow(): void {
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1000,
-    minHeight: 600,
+    width: Math.round(sw * 0.7),
+    height: Math.round(sh * 0.7),
+    minWidth: 600,
+    minHeight: 440,
     show: false,
     frame: false,
     titleBarStyle: 'hidden',
@@ -35,6 +53,29 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // 移动/缩放时保存窗口尺寸位置（非最大化状态）
+  function debounceSaveBounds(): void {
+    if (!mainWindow || mainWindow.isMaximized()) return
+    if (boundsTimer) clearTimeout(boundsTimer)
+    boundsTimer = setTimeout(saveBoundsImmediate, 500)
+  }
+  mainWindow.on('resize', debounceSaveBounds)
+  mainWindow.on('move', debounceSaveBounds)
+
+  // 最大化/还原状态跟踪
+  mainWindow.on('maximize', () => {
+    const config = loadConfig()
+    config.maximized = true
+    saveConfig(config)
+  })
+  mainWindow.on('unmaximize', () => {
+    const config = loadConfig()
+    config.maximized = false
+    const bounds = mainWindow!.getBounds()
+    config.windowBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+    saveConfig(config)
+  })
+
   mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
@@ -49,19 +90,31 @@ app.whenReady().then(async () => {
   console.log('[App] 数据库初始化完成')
 
   registerIpcHandlers()
+  createWelcomeWindow()
 
-  createWindow()
+  const config = loadConfig()
+  console.log('[App] 配置加载完成, theme:', config.theme, 'thsUserDir:', config.thsUserDir)
 
-  try {
-    await syncAllData()
-    const win = BrowserWindow.getFocusedWindow()
-    win?.webContents.send('sync-done')
-  } catch (e: any) {
-    console.error('启动时数据同步失败', e?.message ?? e)
+  // 恢复上次窗口状态
+  if (config.maximized && mainWindow) {
+    const restore = config.windowBounds || getDefaultRestoreBounds()
+    mainWindow.setBounds(restore)
+    mainWindow.maximize()
+  } else if (config.windowBounds && mainWindow) {
+    mainWindow.setBounds(config.windowBounds)
+  }
+
+  // 配置完整: 自动同步数据
+  if (config.stockblockIniPath) {
+    try {
+      await syncAllData(config.stockblockIniPath)
+    } catch {
+      console.error('启动时数据同步失败，可稍后手动同步')
+    }
   }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createWelcomeWindow()
   })
 })
 

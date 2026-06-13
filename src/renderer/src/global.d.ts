@@ -1,4 +1,4 @@
-import { BlockInfo, BlockDailyStats, QueryParams } from './types'
+import { BlockInfo, BlockDailyStats, QueryParams, AppConfig, ThsUserDirEntry } from './types'
 
 declare global {
   interface Window {
@@ -12,6 +12,14 @@ declare global {
       getLatestDate: () => Promise<string>
       onSyncDone: (callback: () => void) => () => void
       updateBlockSort: (codes: string[]) => Promise<void>
+      getConfig: () => Promise<AppConfig>
+      saveConfig: (config: AppConfig) => Promise<void>
+      isFirstRun: () => Promise<boolean>
+      searchThsDirs: () => Promise<ThsUserDirEntry[]>
+      setThsUserDir: (userDir: string) => Promise<AppConfig>
+      completeSetup: (data: { theme: string; thsUserDir: string }) => Promise<AppConfig>
+      openFolderDialog: () => Promise<string | null>
+      onConfigLoaded: (callback: (theme: string) => void) => () => void
     }
   }
 }

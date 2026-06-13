@@ -1,0 +1,33 @@
+.titleBar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  height: var(--menu-bar-height);
+}
+
+.winBtn {
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.winBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.closeBtn:hover {
+  background: var(--accent-danger);
+  color: #ffffff;
+}

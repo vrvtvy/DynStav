@@ -1,0 +1,248 @@
+.welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  position: relative;
+  -webkit-app-region: drag;
+}
+
+.welcome button,
+.welcome [class*="Btn"],
+.welcome [class*="dirItem"],
+.welcome [class*="themeCard"],
+.welcome input {
+  -webkit-app-region: no-drag;
+}
+
+.titleBarWrap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+.container {
+  text-align: center;
+  max-width: 520px;
+  padding: 40px;
+}
+
+.logo {
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 36px;
+}
+
+.stepTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+
+.desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.security {
+  font-size: 12px;
+  color: var(--accent-success);
+  margin-bottom: 16px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.tip {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.themeCards {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.themeCard {
+  width: 200px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 2px solid var(--border-color);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.themeCard:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-hover);
+}
+
+.themeCardActive {
+  border-color: var(--accent-primary);
+  background: var(--bg-secondary);
+}
+
+.themePreviewDark,
+.themePreviewLight {
+  height: 100px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  padding: 8px;
+  position: relative;
+  display: flex;
+  gap: 6px;
+}
+
+.themePreviewDark {
+  background: #1e1e1e;
+}
+
+.themePreviewLight {
+  background: #ffffff;
+}
+
+.previewBar {
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 2px;
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  right: 8px;
+}
+
+.previewSidebar {
+  width: 40px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  margin-top: 14px;
+}
+
+.previewChart {
+  flex: 1;
+  background: var(--bg-primary);
+  border-radius: 2px;
+  margin-top: 14px;
+  position: relative;
+}
+
+.previewLine {
+  position: absolute;
+  bottom: 12px;
+  left: 6px;
+  height: 2px;
+  width: 80%;
+  background: var(--accent-primary);
+  border-radius: 1px;
+}
+
+.themeLabel {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.dirList {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  text-align: left;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.dirItem {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.15s;
+  margin-bottom: 4px;
+}
+
+.dirItem:hover {
+  background: var(--bg-hover);
+}
+
+.dirItemActive {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
+.noDirs {
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.dirActions {
+  margin-bottom: 24px;
+}
+
+.browseBtn {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.browseBtn:hover {
+  background: var(--bg-hover);
+}
+
+.searching {
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.nextBtn,
+.completeBtn {
+  padding: 10px 32px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent-primary);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.nextBtn:hover,
+.completeBtn:hover {
+  filter: brightness(1.15);
+}
+
+.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

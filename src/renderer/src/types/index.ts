@@ -56,6 +56,23 @@ export interface ChartMetric {
 /** 主题类型 */
 export type ThemeType = 'light' | 'dark'
 
+/** 应用配置 */
+export interface AppConfig {
+  theme: ThemeType
+  thsUserDir: string | null
+  stockblockIniPath: string | null
+  /** 窗口位置和大小（最大化时保存的是还原后的尺寸） */
+  windowBounds?: { x: number; y: number; width: number; height: number }
+  /** 上次关闭时是否最大化 */
+  maximized?: boolean
+}
+
+/** 同花顺用户目录搜索结果 */
+export interface ThsUserDirEntry {
+  path: string
+  label: string
+}
+
 /** IPC 事件通道 */
 export const IPC_CHANNELS = {
   GET_BLOCKS: 'get-blocks',
@@ -65,5 +82,11 @@ export const IPC_CHANNELS = {
   SYNC_DONE: 'sync-done',
   GET_LATEST_DATE: 'get-latest-date',
   UPDATE_BLOCK_SORT: 'update-block-sort',
-  SYNC_BLOCK_META: 'sync-block-meta'
+  SYNC_BLOCK_META: 'sync-block-meta',
+  GET_CONFIG: 'get-config',
+  SAVE_CONFIG: 'save-config',
+  SEARCH_THS_DIRS: 'search-ths-dirs',
+  SET_THS_USER_DIR: 'set-ths-user-dir',
+  IS_FIRST_RUN: 'is-first-run',
+  COMPLETE_SETUP: 'complete-setup'
 } as const
