@@ -72,13 +72,10 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
           color: metric.color,
           opacity: 0.1
         } : undefined,
+        focus: 'self',
         emphasis: {
           lineStyle: { width: 4 },
           itemStyle: { opacity: 1 }
-        },
-        blur: {
-          lineStyle: { opacity: 0.2 },
-          itemStyle: { opacity: 0.2 }
         }
       })
     })

@@ -100,10 +100,10 @@ export default function Sidebar({
             value={dateRange}
             onChange={e => handleDateChange(e.target.value)}
           >
-            <option value="3">最近3日</option>
-            <option value="7">最近7日</option>
-            <option value="15">最近15日</option>
-            <option value="30">最近30日</option>
+            <option value="3">最近3个交易日</option>
+            <option value="7">最近7个交易日</option>
+            <option value="15">最近15个交易日</option>
+            <option value="30">最近30个交易日</option>
           </select>
           <button className={styles.resetBtn} onClick={handleReset} title="重置">
             ↺
