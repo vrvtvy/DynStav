@@ -177,6 +177,8 @@ export class SqliteRepository implements DataRepository {
 
     sql += ' ORDER BY date ASC'
 
+    console.log('[Debug] SQL:', sql, 'binds:', JSON.stringify(binds))
+
     const stmt = this.db.prepare(sql)
     stmt.bind(binds)
 

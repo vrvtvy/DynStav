@@ -34,11 +34,11 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.QUERY_STATS, (_event, params) => {
-    return getRepository().queryStats({
-      startDate: params.startDate || getDefaultStartDate(),
-      endDate: params.endDate || getRepository().getLatestDate() || getTodayStr(),
-      blockCode: params.blockCode
-    })
+    const startDate = params.startDate || getDefaultStartDate()
+    const endDate = params.endDate || getRepository().getLatestDate() || getTodayStr()
+    const blockCode = params.blockCode
+    console.log('[Debug] QUERY_STATS params:', JSON.stringify({ startDate, endDate, blockCode }))
+    return getRepository().queryStats({ startDate, endDate, blockCode })
   })
 
   ipcMain.handle(IPC_CHANNELS.SYNC_DATA, async () => {

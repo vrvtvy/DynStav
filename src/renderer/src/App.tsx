@@ -80,8 +80,10 @@ export default function App() {
   }
 
   async function handleSearch(params: QueryParams) {
+    console.log('[Debug] handleSearch params:', JSON.stringify(params))
     setQueryParams(params)
     const result = await window.electronAPI.queryStats(params)
+    console.log('[Debug] handleSearch result count:', result.length)
     setStats(result)
   }
 
