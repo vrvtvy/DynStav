@@ -16,7 +16,7 @@ let mainWindow: BrowserWindow | null = null
 let boundsTimer: NodeJS.Timeout | null = null
 
 function saveBoundsImmediate(): void {
-  if (!mainWindow) return
+  if (!mainWindow || mainWindow.isMaximized()) return
   const bounds = mainWindow.getBounds()
   const config = loadConfig()
   config.windowBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
