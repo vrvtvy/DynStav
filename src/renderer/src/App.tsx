@@ -24,7 +24,11 @@ export default function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState(0)
 
   useEffect(() => {
-    window.electronAPI.isFirstRun().then(first => {
+    Promise.all([
+      window.electronAPI.isFirstRun(),
+      window.electronAPI.getConfig()
+    ]).then(([first, config]) => {
+      if (config.theme) setTheme(config.theme)
       setSetupComplete(!first)
     })
   }, [])
@@ -112,7 +116,9 @@ export default function App() {
     })
   }
 
-  function handleSetupComplete() {
+  async function handleSetupComplete() {
+    const config = await window.electronAPI.getConfig()
+    if (config.theme) setTheme(config.theme)
     setSetupComplete(true)
   }
 

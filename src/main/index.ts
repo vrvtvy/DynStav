@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerIpcHandlers, syncAllData } from './ipc'
@@ -67,6 +67,7 @@ function createWelcomeWindow(): void {
     const config = loadConfig()
     config.maximized = true
     saveConfig(config)
+    mainWindow?.webContents.send('maximize-changed', true)
   })
   mainWindow.on('unmaximize', () => {
     const config = loadConfig()
@@ -74,6 +75,7 @@ function createWelcomeWindow(): void {
     const bounds = mainWindow!.getBounds()
     config.windowBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
     saveConfig(config)
+    mainWindow?.webContents.send('maximize-changed', false)
   })
 
   mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -90,6 +92,10 @@ app.whenReady().then(async () => {
   console.log('[App] 数据库初始化完成')
 
   registerIpcHandlers()
+  ipcMain.handle('get-window-maximized', () => {
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    return win?.isMaximized() ?? false
+  })
   createWelcomeWindow()
 
   const config = loadConfig()

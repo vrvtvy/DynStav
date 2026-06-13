@@ -19,6 +19,8 @@ declare global {
       setThsUserDir: (userDir: string) => Promise<AppConfig>
       completeSetup: (data: { theme: string; thsUserDir: string }) => Promise<AppConfig>
       openFolderDialog: () => Promise<string | null>
+      getWindowMaximized: () => Promise<boolean>
+      onMaximizeChanged: (callback: (maximized: boolean) => void) => () => void
       onConfigLoaded: (callback: (theme: string) => void) => () => void
     }
   }

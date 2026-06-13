@@ -47,6 +47,14 @@ const electronAPI = {
   openFolderDialog: (): Promise<string | null> =>
     ipcRenderer.invoke('open-folder-dialog'),
 
+  getWindowMaximized: (): Promise<boolean> =>
+    ipcRenderer.invoke('get-window-maximized'),
+
+  onMaximizeChanged: (callback: (maximized: boolean) => void) => {
+    ipcRenderer.on('maximize-changed', (_event, maximized) => callback(maximized))
+    return () => ipcRenderer.removeAllListeners('maximize-changed')
+  },
+
   onConfigLoaded: (callback: (theme: string) => void) => {
     ipcRenderer.on('config-loaded', (_event, theme) => callback(theme))
     return () => ipcRenderer.removeAllListeners('config-loaded')
