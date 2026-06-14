@@ -126,6 +126,16 @@ export function registerIpcHandlers(): void {
 
     saveConfig(config)
     win?.maximize()
+
+    // 首次配置完成立即同步一次数据，保证进入主界面即有数据
+    if (config.stockblockIniPath) {
+      try {
+        await syncAllData(config.stockblockIniPath, true)
+      } catch (e) {
+        log.error('[IPC] 首次配置后同步数据失败:', e)
+      }
+    }
+
     return config
   })
 
