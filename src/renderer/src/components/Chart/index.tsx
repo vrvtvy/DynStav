@@ -68,6 +68,7 @@ export default function ChartView({ stats, selectedBlock, blocks }: ChartViewPro
           color: metric.color,
           opacity: isHL ? 1 : 0.35
         },
+        barWidth: metric.type === 'bar' ? '40%' : undefined,
         areaStyle: isHL && metric.type === 'line' ? {
           color: metric.color,
           opacity: 0.1
