@@ -80,7 +80,7 @@ app.whenReady().then(async () => {
   log.initialize()
   log.transports.console.level = 'debug'
   log.transports.console.format = '[{level}] {h}:{i}:{s}.{ms} > {text}'
-  log.transports.file.resolvePath = () => join(getAppDataDir(), 'logs', 'main.log')
+  log.transports.file.resolvePathFn = () => join(getAppDataDir(), 'logs', 'main.log')
   Object.assign(console, log.functions)
 
   app.on('browser-window-created', (_, window) => {
