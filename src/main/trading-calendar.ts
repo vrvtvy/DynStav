@@ -10,7 +10,7 @@
 
 const EASTMONEY_KLINE_URL =
   'https://push2his.eastmoney.com/api/qt/stock/kline/get' +
-  '?secid=1.000001&klt=101&fqt=1&fields1=f1&fields2=f51&lmt=5&beg=0&end=20500101'
+  '?secid=1.000001&klt=101&fqt=1&fields1=f1&fields2=f51&beg=20260101&end=99991231'
 
 function toDateStr(d: Date): string {
   const y = d.getFullYear()
