@@ -11,6 +11,9 @@ export interface DataRepository {
   /** 批量保存板块统计数据 */
   saveStats(stats: BlockDailyStats[]): void
 
+  /** 删除指定日期的所有统计数据（用于重新同步前清除可能残留的旧板块数据） */
+  deleteStatsByDate(date: string): void
+
   /** 条件查询统计数据 */
   queryStats(params: QueryParams): BlockDailyStats[]
 

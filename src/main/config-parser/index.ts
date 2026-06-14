@@ -1,37 +1,22 @@
-import { readFileSync, existsSync, copyFileSync } from 'fs'
-import { dirname } from 'path'
+import { readFileSync, existsSync } from 'fs'
 import iconv from 'iconv-lite'
-import { getDataPath } from '../paths'
 import { ParsedConfig, BlockNameMap, BlockStockMap } from './types'
 
 const A_STOCK_PREFIXES = ['17:', '33:']
 
-/** 本地的配置文件副本路径 */
-function getLocalIniPath(): string {
-  return getDataPath('stockblock.ini')
-}
-
 /**
  * 解析同花顺配置文件
- * @param sourceIniPath 源文件路径（来自用户配置）
+ * @param sourceIniPath 源文件路径（来自用户配置的同花顺目录）
  */
-export function parseConfig(sourceIniPath?: string | null): ParsedConfig {
+export function parseConfig(sourceIniPath: string): ParsedConfig {
   console.log('[ConfigParser] 开始解析同花顺配置文件')
 
-  const localPath = getLocalIniPath()
-  const srcPath = sourceIniPath || localPath
-
-  // 若本地没有副本且源文件存在则复制
-  if (!existsSync(localPath) && existsSync(srcPath)) {
-    copyFileSync(srcPath, localPath)
-  }
-
-  if (!existsSync(localPath)) {
-    console.error('[ConfigParser] 配置文件不存在:', localPath)
+  if (!existsSync(sourceIniPath)) {
+    console.error('[ConfigParser] 配置文件不存在:', sourceIniPath)
     return { blockNames: {}, blockStocks: {}, allAStockCodes: [] }
   }
 
-  const raw = readFileSync(localPath)
+  const raw = readFileSync(sourceIniPath)
   const content = iconv.decode(raw, 'gb18030')
   const lines = content.split(/\r?\n/)
 

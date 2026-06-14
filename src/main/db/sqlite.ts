@@ -159,6 +159,11 @@ export class SqliteRepository implements DataRepository {
     this.save()
   }
 
+  deleteStatsByDate(date: string): void {
+    this.db.run('DELETE FROM block_stats WHERE date = ?', [date])
+    this.save()
+  }
+
   queryStats(params: QueryParams): BlockDailyStats[] {
     let sql = 'SELECT * FROM block_stats WHERE 1=1'
     const binds: Record<string, string> = {}

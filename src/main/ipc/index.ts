@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron'
+import { existsSync } from 'fs'
 import log from 'electron-log/main'
 import { parseConfig } from '../config-parser'
 import { getLastTradingDay } from '../trading-calendar'
@@ -9,6 +10,7 @@ import { loadConfig, saveConfig } from '../config'
 import { searchThsUserDirs } from '../ths-search'
 import { IPC_CHANNELS } from '../../renderer/src/types'
 import { getDataPath } from '../paths'
+import { hasIniChanged, archiveIni } from '../ths-config-archive'
 
 type IpcInvokeHandler = (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any
 
@@ -140,21 +142,36 @@ export function registerIpcHandlers(): void {
 
 export async function syncAllData(iniPath?: string, force = false): Promise<void> {
   console.log('[IPC] 开始同步数据')
-  const config = parseConfig(iniPath)
+
+  // 无源 ini 路径时无法做变更检测与归档，直接返回
+  if (!iniPath || !existsSync(iniPath)) {
+    console.warn('[IPC] 未提供 stockblock.ini 路径，跳过同步')
+    return
+  }
+
   const tradeDate = await getLastTradingDay()
+
+  // MD5 变更检测：源 ini 相对当日归档是否变化。
+  // force=true（用户手动同步）时跳过检测强制重算。
+  const changed = force || hasIniChanged(iniPath, tradeDate)
+  if (!changed) {
+    console.log(`[IPC] stockblock.ini 未变化，跳过同步 (交易日: ${tradeDate})`)
+    // ini 未变但板块元数据（名称/排序）可能因其它原因变化，仍刷新一次
+    const config = parseConfig(iniPath)
+    const metaBlocks = Object.entries(config.blockNames).map(([code, name]) => ({ code, name }))
+    getRepository().saveBlockMeta(metaBlocks)
+    return
+  }
+
+  console.log(`[IPC] stockblock.ini 已变化，重新同步 (交易日: ${tradeDate})`)
+
+  // 先归档原始 ini（覆盖当日归档，仅保留最新一份），再解析最新内容
+  archiveIni(iniPath, tradeDate)
+  const config = parseConfig(iniPath)
 
   const metaBlocks = Object.entries(config.blockNames).map(([code, name]) => ({ code, name }))
   getRepository().saveBlockMeta(metaBlocks)
   console.log(`[IPC] 板块元数据同步完成: ${metaBlocks.length} 个`)
-
-  if (!force) {
-    const repo = getRepository()
-    const existing = repo.queryStats({ startDate: tradeDate, endDate: tradeDate, blockCode: '' })
-    if (existing.length > 0) {
-      console.log('[IPC] 今日数据已存在，跳过同步')
-      return
-    }
-  }
 
   if (config.allAStockCodes.length === 0) {
     console.warn('[IPC] 无A股数据，跳过同步')
@@ -172,6 +189,9 @@ export async function syncAllData(iniPath?: string, force = false): Promise<void
       turnoverRate: q.turnoverRate
     }
   }
+
+  // 重算前清除当日旧数据，避免被删除板块的旧 stats 残留污染
+  getRepository().deleteStatsByDate(tradeDate)
 
   const results = analyzeBlocks(config.blockStocks, config.blockNames, quoteMap, tradeDate)
   const stats = results.map(r => r.stats)
