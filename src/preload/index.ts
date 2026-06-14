@@ -4,14 +4,21 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { IPC_CHANNELS, BlockInfo, BlockDailyStats, QueryParams, AppConfig, ThsUserDirEntry } from '../renderer/src/types'
 
-// 在首次绘制前设置页面背景色，消灭白闪
+// 读取配置中的主题与 setup 状态，写入 localStorage 供 index.html 的 <head>
+// 内联脚本（主题）和 App.tsx（setup 状态）同步读取。
+// preload 执行时 document.documentElement 为 null（<html> 尚未解析），
+// 无法直接设 DOM，故经 localStorage 传递；<head> 内联脚本在 <html> 解析后、
+// 合成器画布渲染前同步设 color-scheme/data-theme，消灭 FOUC。
+// setup 状态让 App 第一帧就渲染 Layout（而非 null），所有区域一帧内同时出现，
+// 避免"逐个冒出"的色块观感。
 const cfgPath = join(homedir(), '.dynstav', 'config.json')
-if (existsSync(cfgPath)) {
-  try {
+try {
+  if (existsSync(cfgPath)) {
     const cfg = JSON.parse(readFileSync(cfgPath, 'utf-8'))
-    if (cfg.theme === 'light') document.documentElement.style.backgroundColor = '#ffffff'
-  } catch {}
-}
+    localStorage.setItem('appTheme', cfg.theme === 'light' ? 'light' : 'dark')
+    localStorage.setItem('appSetupComplete', cfg.thsUserDir ? '1' : '0')
+  }
+} catch {}
 
 const electronAPI = {
   minimizeWindow: () => ipcRenderer.send('window-minimize'),

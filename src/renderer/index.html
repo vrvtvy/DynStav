@@ -4,10 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DynStav - 动态板块趋势分析</title>
+    <!--
+      内联脚本：在 <html> 解析后、CSS 与合成器画布渲染前同步执行，
+      读 localStorage(preload 已写入) 设主题，消灭 FOUC。
+      关键点：color-scheme 控制 Chromium 画布色（闪白的真正来源），
+      必须早于合成设置，故用内联 <head> 脚本而非 JS 模块。
+    -->
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem('appTheme') === 'light' ? 'light' : 'dark'
+          var root = document.documentElement
+          root.style.colorScheme = theme
+          root.style.backgroundColor = theme === 'light' ? '#ffffff' : '#1e1e1e'
+          root.setAttribute('data-theme', theme)
+        } catch (e) {}
+      })()
+    </script>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 100%; height: 100%; overflow: hidden; }
-      body { background: #1e1e1e; }
+      body { background: var(--bg-primary, #1e1e1e); }
     </style>
   </head>
   <body>

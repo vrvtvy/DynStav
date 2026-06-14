@@ -12,8 +12,15 @@ import styles from './App.module.css'
 import log from 'electron-log/renderer'
 
 export default function App() {
-  const [setupComplete, setSetupComplete] = useState<boolean | null>(null)
-  const [theme, setTheme] = useState<ThemeType>('dark')
+  // 初始 setup 状态同步读自 localStorage（preload 写入），第一帧即渲染 Layout，
+  // 避免先返回 null 再异步切换导致区域逐个冒出的色块观感
+  const [setupComplete, setSetupComplete] = useState<boolean>(
+    () => localStorage.getItem('appSetupComplete') === '1'
+  )
+  // 初始主题读自 preload 已设置的 data-theme，避免 dark→真实主题的二次切换闪烁
+  const [theme, setTheme] = useState<ThemeType>(
+    () => (document.documentElement.getAttribute('data-theme') as ThemeType) || 'dark'
+  )
   const [blocks, setBlocks] = useState<BlockInfo[]>([])
   const [selectedBlock, setSelectedBlock] = useState<string>('')
   const [queryParams, setQueryParams] = useState<QueryParams>({})
@@ -25,12 +32,10 @@ export default function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState(0)
 
   useEffect(() => {
-    Promise.all([
-      window.electronAPI.isFirstRun(),
-      window.electronAPI.getConfig()
-    ]).then(([first, config]) => {
+    // 单次获取配置：theme 与是否首次运行（!thsUserDir）一并从 config 推导，省一次 IPC 与磁盘读
+    window.electronAPI.getConfig().then((config) => {
       if (config.theme) setTheme(config.theme)
-      setSetupComplete(!first)
+      setSetupComplete(!!config.thsUserDir)
     })
   }, [])
 
@@ -123,7 +128,6 @@ export default function App() {
     setSetupComplete(true)
   }
 
-  if (setupComplete === null) return null
   if (!setupComplete) return <Welcome onComplete={handleSetupComplete} />
 
   return (
