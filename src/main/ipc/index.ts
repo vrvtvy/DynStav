@@ -131,7 +131,7 @@ export async function syncAllData(iniPath?: string, force = false): Promise<void
 
   if (!force) {
     const repo = getRepository()
-    const existing = repo.queryStats({ startDate: today, endDate: today, blockCode: '' })
+    const existing = repo.queryStats({ startDate: tradeDate, endDate: tradeDate, blockCode: '' })
     if (existing.length > 0) {
       console.log('[IPC] 今日数据已存在，跳过同步')
       return
