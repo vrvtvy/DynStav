@@ -5,10 +5,17 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerIpcHandlers, syncAllData } from './ipc'
 import { initDatabase } from './db'
 import { loadConfig, saveConfig } from './config'
-import { getAppDataDir } from './paths'
+import { setupLogger, installGlobalErrorHandlers, cleanupOldLogs } from './logger'
 
 let mainWindow: BrowserWindow | null = null
 let boundsTimer: NodeJS.Timeout | null = null
+
+// 日志与全局异常捕获必须在模块加载时尽早完成，确保后续启动过程中
+// (initDatabase 等) 的任何异常都能被记录且不会导致进程崩溃。
+setupLogger()
+log.initialize()
+Object.assign(console, log.functions)
+installGlobalErrorHandlers()
 
 function saveBoundsImmediate(): void {
   if (!mainWindow || mainWindow.isMaximized()) return
@@ -77,18 +84,15 @@ function createWelcomeWindow(theme?: string): void {
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.dynstav')
 
-  log.initialize()
-  log.transports.console.level = 'debug'
-  log.transports.console.format = '[{level}] {h}:{i}:{s}.{ms} > {text}'
-  log.transports.file.resolvePathFn = () => join(getAppDataDir(), 'logs', 'main.log')
-  Object.assign(console, log.functions)
-
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
   await initDatabase()
   console.log('[App] 数据库初始化完成')
+
+  // 启动时异步清理过期日志，不 await、不阻塞启动
+  cleanupOldLogs().catch((e) => log.error('[Logger] 清理旧日志失败:', e))
 
   registerIpcHandlers()
   ipcMain.handle('get-window-maximized', () => {
@@ -113,8 +117,8 @@ app.whenReady().then(async () => {
   if (config.stockblockIniPath) {
     try {
       await syncAllData(config.stockblockIniPath)
-    } catch {
-      console.error('启动时数据同步失败，可稍后手动同步')
+    } catch (e) {
+      log.error('启动时数据同步失败，可稍后手动同步:', e)
     }
   }
 

@@ -10,6 +10,24 @@ import { searchThsUserDirs } from '../ths-search'
 import { IPC_CHANNELS } from '../../renderer/src/types'
 import { getDataPath } from '../paths'
 
+type IpcInvokeHandler = (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any
+
+/**
+ * 包裹 ipcMain.handle：捕获 handler 内抛出的异常，记录日志后重新抛出，
+ * 保证异常被记录（不静默丢失），同时让 renderer 端能感知错误。
+ * 即使 handler 本身未 try/catch，也不会导致 unhandledRejection。
+ */
+function safeHandle(channel: string, handler: IpcInvokeHandler): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    try {
+      return await handler(event, ...args)
+    } catch (e) {
+      log.error(`[IPC] ${channel} 处理异常:`, e)
+      throw e
+    }
+  })
+}
+
 export function registerIpcHandlers(): void {
   // 窗口控制
   ipcMain.on('window-minimize', () => {
@@ -30,11 +48,11 @@ export function registerIpcHandlers(): void {
   })
 
   // 板块
-  ipcMain.handle(IPC_CHANNELS.GET_BLOCKS, () => {
+  safeHandle(IPC_CHANNELS.GET_BLOCKS, () => {
     return getRepository().getBlocks()
   })
 
-  ipcMain.handle(IPC_CHANNELS.QUERY_STATS, (_event, params) => {
+  safeHandle(IPC_CHANNELS.QUERY_STATS, (_event, params) => {
     const startDate = params.startDate || getDefaultStartDate()
     const endDate = params.endDate || getRepository().getLatestDate() || getTodayStr()
     const blockCode = params.blockCode
@@ -42,7 +60,7 @@ export function registerIpcHandlers(): void {
     return getRepository().queryStats({ startDate, endDate, blockCode })
   })
 
-  ipcMain.handle(IPC_CHANNELS.SYNC_DATA, async () => {
+  safeHandle(IPC_CHANNELS.SYNC_DATA, async () => {
     const config = loadConfig()
     const iniPath = config.stockblockIniPath
     if (!iniPath) {
@@ -56,33 +74,33 @@ export function registerIpcHandlers(): void {
     win?.webContents.send(IPC_CHANNELS.SYNC_DONE)
   })
 
-  ipcMain.handle(IPC_CHANNELS.GET_LATEST_DATE, () => {
+  safeHandle(IPC_CHANNELS.GET_LATEST_DATE, () => {
     return getRepository().getLatestDate()
   })
 
-  ipcMain.handle(IPC_CHANNELS.UPDATE_BLOCK_SORT, (_event, codes: string[]) => {
+  safeHandle(IPC_CHANNELS.UPDATE_BLOCK_SORT, (_event, codes: string[]) => {
     getRepository().updateBlockSort(codes)
   })
 
   // 配置
-  ipcMain.handle(IPC_CHANNELS.GET_CONFIG, () => {
+  safeHandle(IPC_CHANNELS.GET_CONFIG, () => {
     return loadConfig()
   })
 
-  ipcMain.handle(IPC_CHANNELS.SAVE_CONFIG, (_event, config) => {
+  safeHandle(IPC_CHANNELS.SAVE_CONFIG, (_event, config) => {
     saveConfig(config)
   })
 
-  ipcMain.handle(IPC_CHANNELS.IS_FIRST_RUN, () => {
+  safeHandle(IPC_CHANNELS.IS_FIRST_RUN, () => {
     const config = loadConfig()
     return !config.thsUserDir
   })
 
-  ipcMain.handle(IPC_CHANNELS.SEARCH_THS_DIRS, () => {
+  safeHandle(IPC_CHANNELS.SEARCH_THS_DIRS, () => {
     return searchThsUserDirs()
   })
 
-  ipcMain.handle(IPC_CHANNELS.SET_THS_USER_DIR, async (_event, userDir: string) => {
+  safeHandle(IPC_CHANNELS.SET_THS_USER_DIR, async (_event, userDir: string) => {
     const config = loadConfig()
     const iniPath = userDir ? `${userDir}\\stockblock.ini` : null
     config.thsUserDir = userDir
@@ -91,7 +109,7 @@ export function registerIpcHandlers(): void {
     return config
   })
 
-  ipcMain.handle(IPC_CHANNELS.COMPLETE_SETUP, async (_event, data: { theme: string; thsUserDir: string }) => {
+  safeHandle(IPC_CHANNELS.COMPLETE_SETUP, async (_event, data: { theme: string; thsUserDir: string }) => {
     const config = loadConfig()
     config.theme = data.theme as any
     config.thsUserDir = data.thsUserDir
@@ -110,7 +128,7 @@ export function registerIpcHandlers(): void {
   })
 
   // 浏览文件夹
-  ipcMain.handle('open-folder-dialog', async () => {
+  safeHandle('open-folder-dialog', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
       title: '选择同花顺用户目录（mx_*）'
