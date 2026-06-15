@@ -1,4 +1,6 @@
 /** 东方财富HTTP接口 - 实时行情获取 */
+import { net } from 'electron'
+import log from 'electron-log/main'
 
 /** A股股票实时行情 */
 interface StockQuote {
@@ -13,13 +15,19 @@ interface StockQuote {
   turnoverRate: number
 }
 
+const FETCH_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Referer': 'https://quote.eastmoney.com/',
+  'Accept': 'application/json, text/plain, */*'
+}
+
 /**
  * 批量获取A股实时行情
  * 东方财富接口：https://push2.eastmoney.com/api/qt/ulist.np/get
  * 支持一次查询多只股票，用逗号分隔
  */
 export async function fetchStockQuotes(codes: string[]): Promise<StockQuote[]> {
-  console.log(`[DataFetcher] 开始获取行情，共 ${codes.length} 只股票`)
+  log.info(`[DataFetcher] 开始获取行情，共 ${codes.length} 只股票`)
   const results: StockQuote[] = []
   const batchSize = 300
 
@@ -28,13 +36,13 @@ export async function fetchStockQuotes(codes: string[]): Promise<StockQuote[]> {
     const batchResult = await fetchBatch(batch)
     results.push(...batchResult)
 
-      console.log(`[DataFetcher] 批次 ${Math.floor(i / batchSize) + 1}/${Math.ceil(codes.length / batchSize)}，${batch.length} 只`)
+    log.info(`[DataFetcher] 批次 ${Math.floor(i / batchSize) + 1}/${Math.ceil(codes.length / batchSize)}，${batch.length} 只`)
     if (i + batchSize < codes.length) {
       await delay(200)
     }
   }
 
-  console.log(`[DataFetcher] 全部获取完成，共 ${results.length} 只股票`)
+  log.info(`[DataFetcher] 全部获取完成，共 ${results.length} 只股票`)
   return results
 }
 
@@ -50,7 +58,7 @@ async function fetchBatch(codes: string[]): Promise<StockQuote[]> {
   const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&fields=f2,f3,f6,f8,f12,f14&secids=${secids}`
 
   try {
-    const response = await fetch(url)
+    const response = await net.fetch(url, { headers: FETCH_HEADERS })
     const data = await response.json() as any
 
     if (!data?.data?.diff) return []
@@ -62,10 +70,10 @@ async function fetchBatch(codes: string[]): Promise<StockQuote[]> {
       amount: (item.f6 ?? 0) / 100000000,
       turnoverRate: item.f8 ?? 0
     }))
-    console.log(`[DataFetcher] 批次获取 ${batchResult.length} 只股票成功`)
+    log.info(`[DataFetcher] 批次获取 ${batchResult.length} 只股票成功`)
     return batchResult
   } catch (error) {
-    console.error(`[DataFetcher] 获取股票数据失败:`, error)
+    log.error(`[DataFetcher] 获取股票数据失败:`, error)
     return []
   }
 }

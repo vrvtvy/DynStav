@@ -8,9 +8,18 @@
  *   的规则回退到纯周末判断。
  */
 
+import { net } from 'electron'
+import log from 'electron-log/main'
+
 const EASTMONEY_KLINE_URL =
   'https://push2his.eastmoney.com/api/qt/stock/kline/get' +
   '?secid=1.000001&klt=101&fqt=1&fields1=f1&fields2=f51&beg=20260101&end=99991231'
+
+const FETCH_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Referer': 'https://quote.eastmoney.com/',
+  'Accept': 'application/json, text/plain, */*'
+}
 
 function toDateStr(d: Date): string {
   const y = d.getFullYear()
@@ -34,7 +43,9 @@ function getLastTradingDayByWeekend(): string {
 export async function getLastTradingDay(): Promise<string> {
   // 主路径：上证指数日 K 最后一条即最近交易日
   try {
-    const res = await fetch(EASTMONEY_KLINE_URL)
+    const res = await net.fetch(EASTMONEY_KLINE_URL, {
+      headers: FETCH_HEADERS
+    })
     if (res.ok) {
       const json = (await res.json()) as any
       const klines: string[] = json?.data?.klines || []
@@ -43,9 +54,9 @@ export async function getLastTradingDay(): Promise<string> {
         return last // 形如 "2026-06-12"
       }
     }
-    console.warn('[TradingCalendar] 东方财富接口返回数据为空，回退到周末判断')
+    log.warn('[TradingCalendar] 东方财富接口返回数据为空，回退到周末判断')
   } catch (e) {
-    console.warn('[TradingCalendar] 东方财富接口请求失败，回退到周末判断:', e)
+    log.warn('[TradingCalendar] 东方财富接口请求失败，回退到周末判断:', e)
   }
 
   return getLastTradingDayByWeekend()

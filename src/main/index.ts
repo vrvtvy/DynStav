@@ -45,7 +45,7 @@ function createWelcomeWindow(theme?: string): void {
     backgroundColor: bgColor,
     frame: false,
     titleBarStyle: 'hidden',
-    icon: join(__dirname, '../../resources/icon.png'),
+    icon: join(__dirname, '../../resources/icon.ico'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
