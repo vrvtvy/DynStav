@@ -7,9 +7,10 @@ interface MenuBarProps {
   theme: ThemeType
   onSync: () => void
   onToggleTheme: () => void
+  onRestore: () => void
 }
 
-export default function MenuBar({ syncing, theme, onSync, onToggleTheme }: MenuBarProps) {
+export default function MenuBar({ syncing, theme, onSync, onToggleTheme, onRestore }: MenuBarProps) {
   return (
     <div className={styles.menuBar}>
       <div className={styles.left}>
@@ -21,6 +22,13 @@ export default function MenuBar({ syncing, theme, onSync, onToggleTheme }: MenuB
           title="同步数据"
         >
           {syncing ? '⏳' : '🔄'} 同步数据
+        </button>
+        <button
+          className={styles.syncBtn}
+          onClick={onRestore}
+          title="数据恢复"
+        >
+          💾 数据恢复
         </button>
       </div>
       <div className={styles.right}>

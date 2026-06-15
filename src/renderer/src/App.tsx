@@ -8,6 +8,7 @@ import ChartView from './components/Chart'
 import RightPanel from './components/RightPanel'
 import StatusBar from './components/StatusBar'
 import Welcome from './components/Welcome'
+import RestoreDialog from './components/RestoreDialog'
 import styles from './App.module.css'
 import log from 'electron-log/renderer'
 
@@ -30,6 +31,7 @@ export default function App() {
   const [toast, setToast] = useState('')
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [rightPanelWidth, setRightPanelWidth] = useState(0)
+  const [restoreOpen, setRestoreOpen] = useState(false)
 
   useEffect(() => {
     // 单次获取配置：theme 与是否首次运行（!thsUserDir）一并从 config 推导，省一次 IPC 与磁盘读
@@ -128,6 +130,17 @@ export default function App() {
     setSetupComplete(true)
   }
 
+  // 数据恢复完成后刷新界面：重新加载板块/最新日期，并按当前查询条件重新拉取统计
+  async function handleRestoreDone() {
+    setRestoreOpen(false)
+    await loadBlocks()
+    await loadLatestDate()
+    if (queryParams.blockCode) {
+      handleSearch(queryParams)
+    }
+    showToast('数据恢复完成')
+  }
+
   if (!setupComplete) return <Welcome onComplete={handleSetupComplete} />
 
   return (
@@ -144,6 +157,7 @@ export default function App() {
             theme={theme}
             onSync={handleSync}
             onToggleTheme={toggleTheme}
+            onRestore={() => setRestoreOpen(true)}
           />
         }
         sidebar={
@@ -168,6 +182,13 @@ export default function App() {
         statusBar={<StatusBar latestDate={latestDate} />}
       />
       {toast && <div className={styles.toast}>{toast}</div>}
+      {restoreOpen && (
+        <RestoreDialog
+          open={restoreOpen}
+          onClose={() => setRestoreOpen(false)}
+          onRestored={handleRestoreDone}
+        />
+      )}
     </div>
   )
 }

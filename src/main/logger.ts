@@ -26,7 +26,7 @@ function getLogDir(): string {
  * 因此跨日时第一次写入会自动落到新文件，无需定时器。
  */
 export function setupLogger(): void {
-  log.transports.console.level = 'debug'
+  log.transports.console.level = 'info'
   log.transports.console.format = '[{level}] {h}:{i}:{s}.{ms} > {text}'
   log.transports.file.resolvePathFn = () => join(getLogDir(), getDailyLogFileName())
 }

@@ -111,7 +111,7 @@ app.whenReady().then(async () => {
       const repo = getRepository()
       if (repo && typeof repo.backup === 'function') {
         repo.backup()
-        console.log('[App] Database backup completed before quit')
+        console.log('[App] 退出前已备份数据库')
       }
     } catch (e) {
       console.error('[App] backup before quit failed:', e)
