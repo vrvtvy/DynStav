@@ -1,5 +1,5 @@
-import initSqlJs, { Database as SqlJsDatabase, SqlJsStatic } from 'sql.js'
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'fs'
+import initSqlJs, { SqlJsStatic } from 'sql.js'
+import { readFileSync, writeFileSync, existsSync, copyFileSync, renameSync, readdirSync, unlinkSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { getDataPath } from '../paths'
@@ -8,6 +8,15 @@ import log from 'electron-log/main'
 import { DataRepository } from './interface'
 
 let SQL: SqlJsStatic
+
+type SqlJsDatabase = any
+
+function formatDate(d = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 export class SqliteRepository implements DataRepository {
   private db!: SqlJsDatabase
@@ -67,7 +76,7 @@ export class SqliteRepository implements DataRepository {
           map.set(String(row[0]), Number(row[1]))
         }
       }
-    } catch {}
+    } catch { }
     return map
   }
 
@@ -103,6 +112,88 @@ export class SqliteRepository implements DataRepository {
         SELECT DISTINCT block_code, block_name, 0 FROM block_stats
       `)
       this.db.run("PRAGMA user_version = 1")
+    }
+  }
+
+  private atomicWrite(filePath: string, buffer: Buffer): void {
+    const tmpPath = `${filePath}.tmp`
+    writeFileSync(tmpPath, buffer)
+    if (existsSync(filePath)) {
+      unlinkSync(filePath)
+    }
+    renameSync(tmpPath, filePath)
+  }
+
+  backup(): void {
+    try {
+      const data = this.db.export()
+      const buffer = Buffer.from(data)
+
+      const backupDir = getDataPath('data-backup')
+      if (!existsSync(backupDir)) mkdirSync(backupDir, { recursive: true })
+
+      const dateStr = formatDate()
+      const targetName = `dynstav-${dateStr}.db`
+      const targetPath = join(backupDir, targetName)
+      this.atomicWrite(targetPath, buffer)
+
+      this.rotateBackups()
+    } catch (e) {
+      log.error('[DB] backup failed:', e)
+    }
+  }
+
+  listBackups(): { name: string; path: string }[] {
+    try {
+      const backupDir = getDataPath('data-backup')
+      if (!existsSync(backupDir)) return []
+      const entries = readdirSync(backupDir)
+      const files = entries
+        .filter((f) => f.endsWith('.db') && /^dynstav-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+        .map((f) => ({ name: f, path: join(backupDir, f) }))
+        .sort((a, b) => b.name.localeCompare(a.name))
+      return files
+    } catch (e) {
+      log.error('[DB] listBackups failed:', e)
+      return []
+    }
+  }
+
+  rotateBackups(keepDays = 40): void {
+    try {
+      const backupDir = getDataPath('data-backup')
+      if (!existsSync(backupDir)) return
+      const entries = readdirSync(backupDir)
+      const dayFiles = entries.filter((f) => /^dynstav-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+      const sorted = dayFiles.sort((a, b) => b.localeCompare(a))
+      const toDelete = sorted.slice(keepDays)
+      for (const f of toDelete) {
+        try {
+          unlinkSync(join(backupDir, f))
+        } catch (e) {
+          log.warn('[DB] rotate remove failed:', f, e)
+        }
+      }
+    } catch (e) {
+      log.error('[DB] rotateBackups failed:', e)
+    }
+  }
+
+  restoreFrom(backupPath: string): void {
+    try {
+      if (!existsSync(backupPath)) throw new Error('backup not found')
+      const buffer = readFileSync(backupPath)
+      const newDb = new SQL.Database(buffer)
+
+      try {
+        this.db.close()
+      } catch { }
+      this.db = newDb
+
+      this.save()
+    } catch (e) {
+      log.error('[DB] restoreFrom failed:', e)
+      throw e
     }
   }
 
@@ -245,7 +336,7 @@ export class SqliteRepository implements DataRepository {
   private save(): void {
     const data = this.db.export()
     const buffer = Buffer.from(data)
-    writeFileSync(this.dbPath, buffer)
+    this.atomicWrite(this.dbPath, buffer)
   }
 
   close(): void {

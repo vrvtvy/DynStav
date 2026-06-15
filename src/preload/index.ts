@@ -18,7 +18,7 @@ try {
     localStorage.setItem('appTheme', cfg.theme === 'light' ? 'light' : 'dark')
     localStorage.setItem('appSetupComplete', cfg.thsUserDir ? '1' : '0')
   }
-} catch {}
+} catch { }
 
 const electronAPI = {
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
@@ -40,6 +40,20 @@ const electronAPI = {
   onSyncDone: (callback: () => void) => {
     ipcRenderer.on(IPC_CHANNELS.SYNC_DONE, callback)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.SYNC_DONE, callback)
+  },
+
+  listBackups: (): Promise<{ name: string; path: string }[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.LIST_BACKUPS),
+
+  restoreBackup: (path: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RESTORE_BACKUP, path),
+
+  triggerBackup: (): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TRIGGER_BACKUP),
+
+  onBackupRestored: (callback: () => void) => {
+    ipcRenderer.on(IPC_CHANNELS.BACKUP_RESTORED, callback)
+    return () => ipcRenderer.removeAllListeners(IPC_CHANNELS.BACKUP_RESTORED)
   },
 
   updateBlockSort: (codes: string[]): Promise<void> =>

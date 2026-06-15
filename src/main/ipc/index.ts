@@ -84,6 +84,34 @@ export function registerIpcHandlers(): void {
     getRepository().updateBlockSort(codes)
   })
 
+  // 备份：列出备份文件
+  safeHandle(IPC_CHANNELS.LIST_BACKUPS, () => {
+    return getRepository().listBackups()
+  })
+
+  // 手动触发备份
+  safeHandle(IPC_CHANNELS.TRIGGER_BACKUP, () => {
+    try {
+      getRepository().backup()
+    } catch (e) {
+      log.error('[IPC] trigger backup failed:', e)
+      throw e
+    }
+  })
+
+  // 恢复备份
+  safeHandle(IPC_CHANNELS.RESTORE_BACKUP, (_event, backupPath: string) => {
+    try {
+      getRepository().restoreFrom(backupPath)
+      const win = BrowserWindow.getFocusedWindow()
+      win?.webContents.send(IPC_CHANNELS.BACKUP_RESTORED)
+      return true
+    } catch (e) {
+      log.error('[IPC] restore backup failed:', e)
+      throw e
+    }
+  })
+
   // 配置
   safeHandle(IPC_CHANNELS.GET_CONFIG, () => {
     return loadConfig()

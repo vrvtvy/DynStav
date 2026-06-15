@@ -3,6 +3,7 @@ import { join } from 'path'
 import log from 'electron-log/main'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerIpcHandlers, syncAllData } from './ipc'
+import { getRepository } from './db'
 import { initDatabase } from './db'
 import { loadConfig, saveConfig } from './config'
 import { setupLogger, installGlobalErrorHandlers, cleanupOldLogs } from './logger'
@@ -103,6 +104,19 @@ app.whenReady().then(async () => {
   createWelcomeWindow(config.theme)
 
   console.log('[App] 配置加载完成, theme:', config.theme, 'thsUserDir:', config.thsUserDir)
+
+  // 在应用真正退出前尝试备份当前内存数据库（同步执行）
+  app.on('before-quit', () => {
+    try {
+      const repo = getRepository()
+      if (repo && typeof repo.backup === 'function') {
+        repo.backup()
+        console.log('[App] Database backup completed before quit')
+      }
+    } catch (e) {
+      console.error('[App] backup before quit failed:', e)
+    }
+  })
 
   // 恢复上次窗口状态
   if (config.maximized && mainWindow) {

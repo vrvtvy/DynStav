@@ -22,6 +22,10 @@ declare global {
       getWindowMaximized: () => Promise<boolean>
       onMaximizeChanged: (callback: (maximized: boolean) => void) => () => void
       onConfigLoaded: (callback: (theme: string) => void) => () => void
+      listBackups: () => Promise<{ name: string; path: string }[]>
+      restoreBackup: (path: string) => Promise<void>
+      triggerBackup: () => Promise<void>
+      onBackupRestored: (callback: () => void) => () => void
     }
   }
 }

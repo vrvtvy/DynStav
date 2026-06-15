@@ -25,4 +25,13 @@ export interface DataRepository {
 
   /** 更新板块排序 */
   updateBlockSort(codes: string[]): void
+
+  /** 备份当前数据库 */
+  backup(): void
+
+  /** 列出可恢复的备份文件 */
+  listBackups(): { name: string; path: string }[]
+
+  /** 从指定备份恢复数据库 */
+  restoreFrom(backupPath: string): void
 }

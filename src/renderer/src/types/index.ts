@@ -88,5 +88,9 @@ export const IPC_CHANNELS = {
   SEARCH_THS_DIRS: 'search-ths-dirs',
   SET_THS_USER_DIR: 'set-ths-user-dir',
   IS_FIRST_RUN: 'is-first-run',
-  COMPLETE_SETUP: 'complete-setup'
+  COMPLETE_SETUP: 'complete-setup',
+  LIST_BACKUPS: 'list-backups',
+  RESTORE_BACKUP: 'restore-backup',
+  TRIGGER_BACKUP: 'trigger-backup',
+  BACKUP_RESTORED: 'backup-restored'
 } as const
