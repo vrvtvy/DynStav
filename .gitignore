@@ -6,3 +6,4 @@ data/*.db
 *.log
 .DS_Store
 任务需求.md
+release/
