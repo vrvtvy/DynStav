@@ -393,6 +393,12 @@
   background: var(--bg-hover);
 }
 
+.browseHint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--accent-warning);
+}
+
 .searching {
   padding: 24px;
   color: var(--text-muted);

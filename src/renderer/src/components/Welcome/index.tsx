@@ -11,6 +11,7 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
   const [searching, setSearching] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [appDirs, setAppDirs] = useState<{ label: string; path: string }[]>([])
+  const [browseHint, setBrowseHint] = useState('')
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -40,10 +41,19 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
   async function handleBrowse() {
     const dir = await window.electronAPI.openFolderDialog()
     if (!dir) return
+    setBrowseHint('')
 
     const result = await window.electronAPI.resolveThsDir(dir)
 
-    if (result.type === 'installRoot' && result.dirs && result.dirs.length > 0) {
+    if (result.type === 'userDir') {
+      // 直接选到了 mx_* 用户目录（有 stockblock.ini）
+      const usePath = result.path!
+      setSelectedDir(usePath)
+      setThsDirs(prev => {
+        if (prev.some(d => d.path === usePath)) return prev
+        return [...prev, { path: usePath, label: usePath }]
+      })
+    } else if (result.type === 'installRoot' && result.dirs && result.dirs.length > 0) {
       // 选到了安装根目录，列出 mx_* 子目录供用户选择
       setThsDirs(prev => {
         const merged = [...prev]
@@ -56,13 +66,8 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
         setSelectedDir(result.dirs[0].path)
       }
     } else {
-      // userDir 或 unknown，直接使用
-      const usePath = result.path || dir
-      setSelectedDir(usePath)
-      setThsDirs(prev => {
-        if (prev.some(d => d.path === usePath)) return prev
-        return [...prev, { path: usePath, label: usePath }]
-      })
+      // 无效目录：既没有 stockblock.ini 也没有 mx_* 子目录
+      setBrowseHint('所选目录下未找到同花顺用户数据（无 mx_* 目录或 mx_* 目录下无stockblock.ini文件），请重新选择')
     }
   }
 
@@ -218,6 +223,7 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
 
                 <div className={styles.dirActions}>
                   <button className={styles.browseBtn} onClick={handleBrowse}>浏览文件夹...</button>
+                  {browseHint && <p className={styles.browseHint}>{browseHint}</p>}
                 </div>
               </>
             )}
@@ -328,7 +334,7 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
                 onClick={handleComplete}
                 disabled={!selectedDir}
               >
-                完成配置
+                开始使用
               </button>
             </div>
           </div>
