@@ -1,7 +1,7 @@
 /**
  * 交易日历：获取最近一个 A 股交易日。
  *
- * 主路径：从东方财富「上证指数日 K」接口取最后一条 K 线日期。
+ * 主路径：从腾讯「上证指数日 K」接口取最后一条 K 线日期。
  *   上证指数 K 线天然只含交易日（休市日无 K 线），最后一条即最近
  *   已收盘的交易日，完全无需自行判断节假日/调休，不可能算错。
  * 兜底：网络不可用时，按「A 股周六日永不开市（即便调休补班也不开市）」
@@ -11,15 +11,8 @@
 import { net } from 'electron'
 import log from 'electron-log/main'
 
-const EASTMONEY_KLINE_URL =
-  'https://push2his.eastmoney.com/api/qt/stock/kline/get' +
-  '?secid=1.000001&klt=101&fqt=1&fields1=f1&fields2=f51&beg=20260101&end=99991231'
-
-const FETCH_HEADERS: Record<string, string> = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  'Referer': 'https://quote.eastmoney.com/',
-  'Accept': 'application/json, text/plain, */*'
-}
+const TENCENT_KLINE_URL =
+  'http://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh000001,day,,,10,qfq'
 
 function toDateStr(d: Date): string {
   const y = d.getFullYear()
@@ -43,20 +36,18 @@ function getLastTradingDayByWeekend(): string {
 export async function getLastTradingDay(): Promise<string> {
   // 主路径：上证指数日 K 最后一条即最近交易日
   try {
-    const res = await net.fetch(EASTMONEY_KLINE_URL, {
-      headers: FETCH_HEADERS
-    })
+    const res = await net.fetch(TENCENT_KLINE_URL)
     if (res.ok) {
       const json = (await res.json()) as any
-      const klines: string[] = json?.data?.klines || []
-      if (klines.length > 0) {
-        const last = klines[klines.length - 1].split(',')[0]
-        return last // 形如 "2026-06-12"
+      const days: string[][] = json?.data?.sh000001?.day || []
+      if (days.length > 0) {
+        const last = days[days.length - 1][0]
+        return last // 形如 "2026-06-16"
       }
     }
-    log.warn('[TradingCalendar] 东方财富接口返回数据为空，回退到周末判断')
+    log.warn('[TradingCalendar] 腾讯接口返回数据为空，回退到周末判断')
   } catch (e) {
-    log.warn('[TradingCalendar] 东方财富接口请求失败，回退到周末判断:', e)
+    log.warn('[TradingCalendar] 腾讯接口请求失败，回退到周末判断:', e)
   }
 
   return getLastTradingDayByWeekend()
