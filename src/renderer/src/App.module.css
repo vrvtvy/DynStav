@@ -11,7 +11,7 @@
   bottom: 40px;
   right: 20px;
   padding: 10px 20px;
-  background: var(--accent-success);
+  background: var(--accent-primary);
   color: #ffffff;
   border-radius: 6px;
   font-size: var(--font-size-sm);
