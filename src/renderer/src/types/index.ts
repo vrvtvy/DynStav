@@ -92,5 +92,6 @@ export const IPC_CHANNELS = {
   LIST_BACKUPS: 'list-backups',
   RESTORE_BACKUP: 'restore-backup',
   TRIGGER_BACKUP: 'trigger-backup',
-  BACKUP_RESTORED: 'backup-restored'
+  BACKUP_RESTORED: 'backup-restored',
+  CHECK_MARKET_OPEN: 'check-market-open'
 } as const

@@ -52,3 +52,17 @@ export async function getLastTradingDay(): Promise<string> {
 
   return getLastTradingDayByWeekend()
 }
+
+/**
+ * 判断当前是否处于 A 股盘中交易时段（9:15 ~ 15:00）。
+ * 仅按时间和周末判断，不含节假日；节假日当天误报不影响功能
+ * （用户看到提示后可选择取消同步）。
+ */
+export function isMarketCurrentlyOpen(): boolean {
+  const now = new Date()
+  const day = now.getDay()
+  if (day === 0 || day === 6) return false
+
+  const minutes = now.getHours() * 60 + now.getMinutes()
+  return minutes >= 555 && minutes < 900 // 9:15 ~ 15:00
+}

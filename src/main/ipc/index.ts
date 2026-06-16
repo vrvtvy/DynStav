@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { existsSync } from 'fs'
 import log from 'electron-log/main'
 import { parseConfig } from '../config-parser'
-import { getLastTradingDay } from '../trading-calendar'
+import { getLastTradingDay, isMarketCurrentlyOpen } from '../trading-calendar'
 import { fetchStockQuotes } from '../data-fetcher'
 import { analyzeBlocks } from '../analyzer'
 import { getRepository } from '../db'
@@ -74,6 +74,10 @@ export function registerIpcHandlers(): void {
     await syncAllData(iniPath, true)
     const win = BrowserWindow.getFocusedWindow()
     win?.webContents.send(IPC_CHANNELS.SYNC_DONE)
+  })
+
+  safeHandle(IPC_CHANNELS.CHECK_MARKET_OPEN, () => {
+    return isMarketCurrentlyOpen()
   })
 
   safeHandle(IPC_CHANNELS.GET_LATEST_DATE, () => {

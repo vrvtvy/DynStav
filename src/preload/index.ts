@@ -34,6 +34,9 @@ const electronAPI = {
   syncData: (): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.SYNC_DATA),
 
+  checkMarketOpen: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CHECK_MARKET_OPEN),
+
   getLatestDate: (): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.GET_LATEST_DATE),
 

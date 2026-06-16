@@ -9,6 +9,7 @@ import RightPanel from './components/RightPanel'
 import StatusBar from './components/StatusBar'
 import Welcome from './components/Welcome'
 import RestoreDialog from './components/RestoreDialog'
+import ConfirmDialog from './components/ConfirmDialog'
 import styles from './App.module.css'
 import log from 'electron-log/renderer'
 
@@ -32,6 +33,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(280)
   const [rightPanelWidth, setRightPanelWidth] = useState(0)
   const [restoreOpen, setRestoreOpen] = useState(false)
+  const [marketWarningOpen, setMarketWarningOpen] = useState(false)
 
   useEffect(() => {
     // 单次获取配置：theme 与是否首次运行（!thsUserDir）一并从 config 推导，省一次 IPC 与磁盘读
@@ -94,6 +96,16 @@ export default function App() {
   }
 
   async function handleSync() {
+    // 盘中同步确认：A 股交易时段内获取的是实时价格而非收盘价
+    const isMarketOpen = await window.electronAPI.checkMarketOpen()
+    if (isMarketOpen) {
+      setMarketWarningOpen(true)
+      return
+    }
+    await doSync()
+  }
+
+  async function doSync() {
     setSyncing(true)
     await window.electronAPI.syncData()
     setSyncing(false)
@@ -189,6 +201,18 @@ export default function App() {
           onRestored={handleRestoreDone}
         />
       )}
+      <ConfirmDialog
+        open={marketWarningOpen}
+        title="盘中同步提示"
+        message="当前处于 A 股盘中交易时段（9:15-15:00），同步获取的是实时价格而非收盘价，统计结果可能与最终收盘数据不一致。是否继续？"
+        confirmText="继续同步"
+        cancelText="取消"
+        onConfirm={() => {
+          setMarketWarningOpen(false)
+          doSync()
+        }}
+        onCancel={() => setMarketWarningOpen(false)}
+      />
     </div>
   )
 }
