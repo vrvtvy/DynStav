@@ -39,11 +39,29 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
 
   async function handleBrowse() {
     const dir = await window.electronAPI.openFolderDialog()
-    if (dir) {
-      setSelectedDir(dir)
+    if (!dir) return
+
+    const result = await window.electronAPI.resolveThsDir(dir)
+
+    if (result.type === 'installRoot' && result.dirs && result.dirs.length > 0) {
+      // 选到了安装根目录，列出 mx_* 子目录供用户选择
       setThsDirs(prev => {
-        if (prev.some(d => d.path === dir)) return prev
-        return [...prev, { path: dir, label: dir }]
+        const merged = [...prev]
+        for (const d of result.dirs!) {
+          if (!merged.some(m => m.path === d.path)) merged.push(d)
+        }
+        return merged
+      })
+      if (result.dirs.length === 1) {
+        setSelectedDir(result.dirs[0].path)
+      }
+    } else {
+      // userDir 或 unknown，直接使用
+      const usePath = result.path || dir
+      setSelectedDir(usePath)
+      setThsDirs(prev => {
+        if (prev.some(d => d.path === usePath)) return prev
+        return [...prev, { path: usePath, label: usePath }]
       })
     }
   }

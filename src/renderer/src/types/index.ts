@@ -86,6 +86,7 @@ export const IPC_CHANNELS = {
   GET_CONFIG: 'get-config',
   SAVE_CONFIG: 'save-config',
   SEARCH_THS_DIRS: 'search-ths-dirs',
+  RESOLVE_THS_DIR: 'resolve-ths-dir',
   SET_THS_USER_DIR: 'set-ths-user-dir',
   IS_FIRST_RUN: 'is-first-run',
   COMPLETE_SETUP: 'complete-setup',

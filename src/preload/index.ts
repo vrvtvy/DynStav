@@ -77,6 +77,9 @@ const electronAPI = {
   searchThsDirs: (): Promise<ThsUserDirEntry[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.SEARCH_THS_DIRS),
 
+  resolveThsDir: (dir: string): Promise<{ type: 'userDir' | 'installRoot' | 'unknown'; path?: string; dirs?: ThsUserDirEntry[] }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RESOLVE_THS_DIR, dir),
+
   setThsUserDir: (userDir: string): Promise<AppConfig> =>
     ipcRenderer.invoke(IPC_CHANNELS.SET_THS_USER_DIR, userDir),
 

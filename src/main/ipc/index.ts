@@ -8,7 +8,7 @@ import { fetchStockQuotes } from '../data-fetcher'
 import { analyzeBlocks } from '../analyzer'
 import { getRepository } from '../db'
 import { loadConfig, saveConfig } from '../config'
-import { searchThsUserDirs } from '../ths-search'
+import { searchThsUserDirs, resolveThsDir } from '../ths-search'
 import { IPC_CHANNELS } from '../../renderer/src/types'
 import { getDataPath } from '../paths'
 import { hasIniChanged, archiveIni } from '../ths-config-archive'
@@ -147,6 +147,10 @@ export function registerIpcHandlers(): void {
     return searchThsUserDirs()
   })
 
+  safeHandle(IPC_CHANNELS.RESOLVE_THS_DIR, (_event, dir: string) => {
+    return resolveThsDir(dir)
+  })
+
   safeHandle(IPC_CHANNELS.SET_THS_USER_DIR, async (_event, userDir: string) => {
     const config = loadConfig()
     const iniPath = userDir ? `${userDir}\\stockblock.ini` : null
@@ -188,7 +192,7 @@ export function registerIpcHandlers(): void {
   safeHandle('open-folder-dialog', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
-      title: '选择同花顺用户目录（mx_*）'
+      title: '选择同花顺安装目录或用户目录'
     })
     if (result.canceled || !result.filePaths.length) return null
     return result.filePaths[0]

@@ -18,6 +18,7 @@ declare global {
       saveConfig: (config: AppConfig) => Promise<void>
       isFirstRun: () => Promise<boolean>
       searchThsDirs: () => Promise<ThsUserDirEntry[]>
+      resolveThsDir: (dir: string) => Promise<{ type: 'userDir' | 'installRoot' | 'unknown'; path?: string; dirs?: ThsUserDirEntry[] }>
       setThsUserDir: (userDir: string) => Promise<AppConfig>
       completeSetup: (data: { theme: string; thsUserDir: string }) => Promise<AppConfig>
       openFolderDialog: () => Promise<string | null>
