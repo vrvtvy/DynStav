@@ -8,9 +8,10 @@ interface MenuBarProps {
   onSync: () => void
   onToggleTheme: () => void
   onRestore: () => void
+  onGuide: () => void
 }
 
-export default function MenuBar({ syncing, theme, onSync, onToggleTheme, onRestore }: MenuBarProps) {
+export default function MenuBar({ syncing, theme, onSync, onToggleTheme, onRestore, onGuide }: MenuBarProps) {
   return (
     <div className={styles.menuBar}>
       <div className={styles.left}>
@@ -32,6 +33,13 @@ export default function MenuBar({ syncing, theme, onSync, onToggleTheme, onResto
         </button>
       </div>
       <div className={styles.right}>
+        <button
+          className={styles.themeBtn}
+          onClick={onGuide}
+          title="使用指南"
+        >
+          ❓
+        </button>
         <button
           className={styles.themeBtn}
           onClick={onToggleTheme}

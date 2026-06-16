@@ -8,6 +8,7 @@ import ChartView from './components/Chart'
 import RightPanel from './components/RightPanel'
 import StatusBar from './components/StatusBar'
 import Welcome from './components/Welcome'
+import GuideContent from './components/GuideContent'
 import RestoreDialog from './components/RestoreDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import styles from './App.module.css'
@@ -34,6 +35,7 @@ export default function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState(0)
   const [restoreOpen, setRestoreOpen] = useState(false)
   const [marketWarningOpen, setMarketWarningOpen] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   useEffect(() => {
     // 单次获取配置：theme 与是否首次运行（!thsUserDir）一并从 config 推导，省一次 IPC 与磁盘读
@@ -170,6 +172,7 @@ export default function App() {
             onSync={handleSync}
             onToggleTheme={toggleTheme}
             onRestore={() => setRestoreOpen(true)}
+            onGuide={() => setGuideOpen(true)}
           />
         }
         sidebar={
@@ -213,6 +216,17 @@ export default function App() {
         }}
         onCancel={() => setMarketWarningOpen(false)}
       />
+      {guideOpen && (
+        <div className={styles.guideOverlay} onClick={() => setGuideOpen(false)}>
+          <div className={styles.guideDialog} onClick={e => e.stopPropagation()}>
+            <div className={styles.guideDialogHeader}>
+              <h2 className={styles.guideDialogTitle}>使用指南</h2>
+              <button className={styles.guideCloseBtn} onClick={() => setGuideOpen(false)}>✕</button>
+            </div>
+            <GuideContent />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
