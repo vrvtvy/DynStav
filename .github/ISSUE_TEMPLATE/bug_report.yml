@@ -1,0 +1,51 @@
+name: 🐛 Bug 报告
+description: 报告一个 DynStav 的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你抽时间反馈问题！请尽量填写完整，方便我们定位。
+
+  - type: input
+    id: version
+    attributes:
+      label: DynStav 版本
+      placeholder: "例如 1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows 版本
+      placeholder: "例如 Windows 11 23H2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么？
+      description: 描述你遇到的问题，以及你期望的行为。
+      placeholder: "我做了……，然后……，期望……，实际……"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开应用
+        2. 点击「同步数据」
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      description: 日志位于 `%LOCALAPPDATA%\DynStav\logs`，可贴出相关片段或截图。

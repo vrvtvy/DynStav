@@ -2,6 +2,16 @@
   "name": "dynstav",
   "version": "1.0.0",
   "description": "动态板块趋势分析可视化 (Dynamic Sector Trend Analysis Visualization)",
+  "author": "vrvtvy",
+  "license": "MIT",
+  "homepage": "https://github.com/vrvtvy/dynstav",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vrvtvy/dynstav.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vrvtvy/dynstav/issues"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "pwsh -NoProfile -File run.ps1 dev",

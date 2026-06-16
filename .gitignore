@@ -1,12 +1,46 @@
+# ===== 依赖 =====
 node_modules/
+pnpm-store/
+
+# ===== 构建产物 =====
 out/
 dist/
+release/
+*.tsbuildinfo
+
+# ===== 运行时数据（绝对不能上传）=====
+# 用户数据库、配置缓存、行情缓存等
 data/*.ini
 data/*.db
+data/*.db-journal
+data/*.sqlite
+data/*.sqlite-journal
+
+# ===== 日志 =====
 *.log
-*.tsbuildinfo
-.DS_Store
+logs/
+
+# ===== 敏感 / 私有文档 =====
 任务需求.md
-release/
+
+# ===== 环境变量 =====
+.env
+.env.*
+!.env.example
+
+# ===== 编辑器 / IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== AI 辅助工具目录 =====
+.codegraph/
 .qoder-cn/
 .qoderworkcn/
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini
