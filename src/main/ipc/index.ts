@@ -1,5 +1,6 @@
-import { ipcMain, BrowserWindow, dialog } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app } from 'electron'
 import { existsSync } from 'fs'
+import { join } from 'path'
 import log from 'electron-log/main'
 import { parseConfig } from '../config-parser'
 import { getLastTradingDay, isMarketCurrentlyOpen } from '../trading-calendar'
@@ -78,6 +79,18 @@ export function registerIpcHandlers(): void {
 
   safeHandle(IPC_CHANNELS.CHECK_MARKET_OPEN, () => {
     return isMarketCurrentlyOpen()
+  })
+
+  safeHandle(IPC_CHANNELS.GET_APP_DIRS, () => {
+    const home = app.getPath('home')
+    const localAppData = process.env.LOCALAPPDATA || join(home, 'AppData', 'Local')
+    const appData = process.env.APPDATA || join(home, 'AppData', 'Roaming')
+    return [
+      { label: '配置', path: join(home, '.dynstav') },
+      { label: '数据', path: join(localAppData, 'DynStav') },
+      { label: '缓存', path: join(appData, 'dynstav') },
+      { label: '更新', path: join(localAppData, 'dynstav-updater') },
+    ]
   })
 
   safeHandle(IPC_CHANNELS.GET_LATEST_DATE, () => {

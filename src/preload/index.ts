@@ -37,6 +37,9 @@ const electronAPI = {
   checkMarketOpen: (): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.CHECK_MARKET_OPEN),
 
+  getAppDirs: (): Promise<{ label: string; path: string }[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_APP_DIRS),
+
   getLatestDate: (): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.GET_LATEST_DATE),
 

@@ -10,6 +10,7 @@ declare global {
       queryStats: (params: QueryParams) => Promise<BlockDailyStats[]>
       syncData: () => Promise<void>
       checkMarketOpen: () => Promise<boolean>
+      getAppDirs: () => Promise<{ label: string; path: string }[]>
       getLatestDate: () => Promise<string>
       onSyncDone: (callback: () => void) => () => void
       updateBlockSort: (codes: string[]) => Promise<void>
