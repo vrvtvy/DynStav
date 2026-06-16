@@ -26,8 +26,14 @@ function getLogDir(): string {
  * 因此跨日时第一次写入会自动落到新文件，无需定时器。
  */
 export function setupLogger(): void {
-  log.transports.console.level = 'info'
+  // 开发模式 (pnpm dev / electron-vite) 控制台显示 debug，方便调试
+  // 打包后控制台只显示 info 及以上
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+  log.transports.console.level = isDev ? 'debug' : 'info'
   log.transports.console.format = '[{level}] {h}:{i}:{s}.{ms} > {text}'
+
+  // 日志文件始终只记录 info 及以上，避免 debug 信息占空间
+  log.transports.file.level = 'info'
   log.transports.file.resolvePathFn = () => join(getLogDir(), getDailyLogFileName())
 }
 
