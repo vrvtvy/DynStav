@@ -5,10 +5,13 @@ import { ThsUserDirEntry } from '../renderer/src/types'
 
 /** 常见同花顺安装目录候选 */
 const COMMON_THS_DIRS = [
-  'D:\\software\\同花顺软件\\同花顺\\同花顺',
-  'C:\\同花顺',
-  'D:\\同花顺',
-  'E:\\同花顺',
+  'C:\\同花顺软件\\同花顺',
+  'D:\\同花顺软件\\同花顺',
+  'D:\\software\\同花顺软件\\同花顺',
+  'E:\\同花顺软件\\同花顺',
+  'E:\\software\\同花顺软件\\同花顺',
+  'F:\\同花顺软件\\同花顺',
+  'F:\\software\\同花顺软件\\同花顺',
   join(process.env.USERPROFILE || '', 'AppData\\Local\\同花顺'),
   join(process.env.USERPROFILE || '', 'Documents\\同花顺')
 ]
@@ -32,7 +35,7 @@ function getThsPathsFromRegistry(): string[] {
       if (match) {
         paths.push(match[1].trim())
       }
-    } catch {}
+    } catch { }
   }
   return paths
 }
@@ -55,7 +58,7 @@ function scanMxUserDirs(parentDir: string): ThsUserDirEntry[] {
         }
       }
     }
-  } catch {}
+  } catch { }
 
   return results
 }
