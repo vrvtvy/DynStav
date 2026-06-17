@@ -8,7 +8,6 @@ interface SidebarProps {
   selectedBlock: string
   onSearch: (params: QueryParams) => void
   onBlockClick: (blockCode: string) => void
-  onReset: (blockCode: string) => void
   onUpdateSort?: (codes: string[]) => void
   latestDate: string
 }
@@ -18,7 +17,6 @@ export default function Sidebar({
   selectedBlock,
   onSearch,
   onBlockClick,
-  onReset,
   onUpdateSort,
   latestDate
 }: SidebarProps) {
@@ -70,7 +68,8 @@ export default function Sidebar({
     setBlockNameFilter('')
     setDateRange('7')
     const first = blocks[0]?.code || ''
-    onReset(first)
+    const { startDate, endDate } = getTradingDateRange(7, latestDate)
+    onSearch({ startDate, endDate, blockCode: first })
   }
 
   function handleDragStart(index: number) {

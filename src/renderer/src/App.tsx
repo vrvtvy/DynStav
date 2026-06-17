@@ -114,20 +114,19 @@ export default function App() {
     showToast('数据同步完成')
     await loadBlocks()
     await loadLatestDate()
+    // 同步后刷新查询：有当前参数则重查，否则用默认7日
     if (queryParams.blockCode) {
       handleSearch(queryParams)
+    } else if (blocks.length > 0) {
+      const code = selectedBlock || blocks[0]?.code
+      const { startDate, endDate } = getTradingDateRange(7, latestDate)
+      handleSearch({ startDate, endDate, blockCode: code })
     }
   }
 
   function handleBlockClick(blockCode: string) {
     setSelectedBlock(blockCode)
     handleSearch({ ...queryParams, blockCode })
-  }
-
-  function handleReset(blockCode: string) {
-    const { startDate, endDate } = getTradingDateRange(7, latestDate)
-    setSelectedBlock(blockCode)
-    handleSearch({ startDate, endDate, blockCode })
   }
 
   async function handleUpdateSort(codes: string[]) {
@@ -181,7 +180,6 @@ export default function App() {
             selectedBlock={selectedBlock}
             onSearch={handleSearch}
             onBlockClick={handleBlockClick}
-            onReset={handleReset}
             onUpdateSort={handleUpdateSort}
             latestDate={latestDate}
           />
