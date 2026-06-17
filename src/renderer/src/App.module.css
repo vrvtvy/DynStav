@@ -45,7 +45,8 @@
 }
 
 .guideDialog {
-  width: 580px;
+  width: 55%;
+  max-width: 780px;
   max-height: 75vh;
   overflow-y: auto;
   background: var(--bg-primary);

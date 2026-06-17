@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ThsUserDirEntry } from '../../types'
 import TitleBar from '../TitleBar'
 import GuideContent from '../GuideContent'
@@ -13,6 +13,15 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
   const [syncing, setSyncing] = useState(false)
   const [appDirs, setAppDirs] = useState<{ label: string; path: string }[]>([])
   const [browseHint, setBrowseHint] = useState('')
+  const [slideClass, setSlideClass] = useState(styles.stepSlide)
+  const prevStep = useRef(1)
+
+  /** 切换步骤并设置动画方向 */
+  function goToStep(next: number) {
+    setSlideClass(next > prevStep.current ? styles.stepSlide : styles.stepSlideBack)
+    prevStep.current = next
+    setStep(next)
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -23,8 +32,9 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
   }
 
   async function handleNext() {
-    if (step === 1) {
-      setStep(2)
+    if (step === 2) {
+      // 从指南页进入配置页，触发目录搜索
+      goToStep(3)
       setSearching(true)
       const [dirs, paths] = await Promise.all([
         window.electronAPI.searchThsDirs(),
@@ -38,7 +48,7 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
       }
       return
     }
-    setStep(step + 1)
+    goToStep(step + 1)
   }
 
   async function handleBrowse() {
@@ -90,6 +100,7 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
     <div className={styles.welcome}>
       <div className={styles.titleBarWrap}><TitleBar /></div>
       <div className={styles.body}>
+        <div key={step} className={slideClass}>
 
         {/* ────────── Step 1: 选择主题 ────────── */}
         {step === 1 && (
@@ -140,9 +151,9 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        {/* ────────── Step 2: 配置同花顺目录 ────────── */}
+        {/* ────────── Step 2: 使用说明 ────────── */}
         {step === 2 && (
-          <div className={styles.container}>
+          <div className={styles.containerWide}>
             {/* 步骤指示器 */}
             <div className={styles.stepIndicator}>
               <div className={styles.stepItem}>
@@ -156,12 +167,51 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
               <div className={styles.stepLine} />
               <div className={styles.stepItem}>
                 <div className={`${styles.stepNumber} ${styles.stepNumberActive}`}>2</div>
-                <span className={`${styles.stepLabel} ${styles.stepLabelActive}`}>配置目录</span>
+                <span className={`${styles.stepLabel} ${styles.stepLabelActive}`}>使用说明</span>
               </div>
               <div className={styles.stepLine} />
               <div className={styles.stepItem}>
                 <div className={styles.stepNumber}>3</div>
+                <span className={styles.stepLabel}>配置目录</span>
+              </div>
+            </div>
+
+            {/* ── 使用教程 + 免责声明 ── */}
+            <GuideContent />
+
+            <div className={styles.navRow}>
+              <button className={styles.backBtn} onClick={() => goToStep(1)}>上一步</button>
+              <button className={styles.nextBtn} onClick={handleNext}>下一步</button>
+            </div>
+          </div>
+        )}
+
+        {/* ────────── Step 3: 配置同花顺目录 ────────── */}
+        {step === 3 && (
+          <div className={styles.containerWide}>
+            {/* 步骤指示器 */}
+            <div className={styles.stepIndicator}>
+              <div className={styles.stepItem}>
+                <div className={`${styles.stepNumber} ${styles.stepNumberDone}`}>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <span className={styles.stepLabel}>选择主题</span>
+              </div>
+              <div className={styles.stepLine} />
+              <div className={styles.stepItem}>
+                <div className={`${styles.stepNumber} ${styles.stepNumberDone}`}>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
                 <span className={styles.stepLabel}>使用说明</span>
+              </div>
+              <div className={styles.stepLine} />
+              <div className={styles.stepItem}>
+                <div className={`${styles.stepNumber} ${styles.stepNumberActive}`}>3</div>
+                <span className={`${styles.stepLabel} ${styles.stepLabelActive}`}>配置目录</span>
               </div>
             </div>
 
@@ -232,52 +282,7 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
             )}
 
             <div className={styles.navRow}>
-              <button className={styles.backBtn} onClick={() => setStep(1)}>上一步</button>
-              <button
-                className={`${styles.nextBtn} ${selectedDir ? '' : styles.disabled}`}
-                onClick={handleNext}
-                disabled={!selectedDir}
-              >
-                下一步
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ────────── Step 3: 使用说明 ────────── */}
-        {step === 3 && (
-          <div className={styles.container}>
-            {/* 步骤指示器 */}
-            <div className={styles.stepIndicator}>
-              <div className={styles.stepItem}>
-                <div className={`${styles.stepNumber} ${styles.stepNumberDone}`}>
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <span className={styles.stepLabel}>选择主题</span>
-              </div>
-              <div className={styles.stepLine} />
-              <div className={styles.stepItem}>
-                <div className={`${styles.stepNumber} ${styles.stepNumberDone}`}>
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <span className={styles.stepLabel}>配置目录</span>
-              </div>
-              <div className={styles.stepLine} />
-              <div className={styles.stepItem}>
-                <div className={`${styles.stepNumber} ${styles.stepNumberActive}`}>3</div>
-                <span className={`${styles.stepLabel} ${styles.stepLabelActive}`}>使用说明</span>
-              </div>
-            </div>
-
-            {/* ── 使用教程 + 免责声明 ── */}
-            <GuideContent />
-
-            <div className={styles.navRow}>
-              <button className={styles.backBtn} onClick={() => setStep(2)}>上一步</button>
+              <button className={styles.backBtn} onClick={() => goToStep(2)}>上一步</button>
               <button
                 className={`${styles.completeBtn} ${selectedDir ? '' : styles.disabled}`}
                 onClick={handleComplete}
@@ -289,6 +294,7 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
+        </div>
       </div>
 
       {/* 首次同步数据 Loading */}

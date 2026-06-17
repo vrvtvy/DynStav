@@ -29,6 +29,7 @@
 .body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -38,9 +39,52 @@
 }
 
 .container {
-  width: 100%;
+  width: 85%;
   max-width: 580px;
   text-align: center;
+}
+
+.containerWide {
+  width: 85%;
+  max-width: 780px;
+  text-align: center;
+}
+
+/* 步骤切换滑入动画 */
+.stepSlide {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.stepSlideBack {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 /* ─── Header ─── */
