@@ -18,6 +18,9 @@
           root.style.colorScheme = theme
           root.style.backgroundColor = theme === 'light' ? '#ffffff' : '#1e1e1e'
           root.setAttribute('data-theme', theme)
+          // 字体大小：避免首屏小字体闪烁
+          var fs = localStorage.getItem('appFontSize')
+          if (fs && fs !== 'medium') root.setAttribute('data-font-size', fs)
         } catch (e) {}
       })()
     </script>

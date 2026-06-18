@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, dialog, app } from 'electron'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import log from 'electron-log/main'
 import { parseConfig } from '../config-parser'
 import { getLastTradingDay, isMarketCurrentlyOpen } from '../trading-calendar'
@@ -12,6 +13,14 @@ import { searchThsUserDirs, resolveThsDir } from '../ths-search'
 import { IPC_CHANNELS } from '../../renderer/src/types'
 import { getDataPath } from '../paths'
 import { hasIniChanged, archiveIni } from '../ths-config-archive'
+import {
+  streamChat,
+  cancelChat,
+  testProvider,
+  loadProviders,
+  saveProviders,
+  genId
+} from '../ai/service'
 
 type IpcInvokeHandler = (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any
 
@@ -196,6 +205,47 @@ export function registerIpcHandlers(): void {
     })
     if (result.canceled || !result.filePaths.length) return null
     return result.filePaths[0]
+  })
+
+  // ─── AI 对话分析 ───
+  // 流式聊天：在主进程内逐 chunk 经 IPC 事件回推给渲染层，
+  // 渲染层不接触密钥与网络细节，符合需求 §4.3 安全要求。
+  safeHandle(IPC_CHANNELS.AI_CHAT, async (event, request) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const requestId = randomUUID()
+
+    // 立即将 requestId 推给渲染层，使其能在 chunk 到达前设置 pendingRequestId，
+    // 避免 chunk 因 pendingRequestId===null 被过滤丢弃（IPC invoke 的 resolve
+    // 要等 streamChat 全部完成才返回，远晚于首个 chunk）。
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC_CHANNELS.AI_CHAT_STARTED, requestId)
+    }
+
+    await streamChat(request, requestId, (chunk) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(IPC_CHANNELS.AI_CHAT_CHUNK, { requestId, chunk })
+      }
+    })
+    return { requestId }
+  })
+
+  ipcMain.on(IPC_CHANNELS.AI_CANCEL, (_event, requestId: string) => {
+    cancelChat(requestId)
+  })
+
+  safeHandle(IPC_CHANNELS.AI_LIST_PROVIDERS, () => {
+    return loadProviders()
+  })
+
+  safeHandle(IPC_CHANNELS.AI_SAVE_PROVIDERS, (_event, data: { providers: any[]; activeId: string | null }) => {
+    // 为无 id 的新增项补 id
+    const providers = (data.providers || []).map((p) => ({ ...p, id: p.id || genId() }))
+    saveProviders(providers, data.activeId ?? null)
+    return loadProviders()
+  })
+
+  safeHandle(IPC_CHANNELS.AI_TEST_PROVIDER, async (_event, provider) => {
+    return testProvider(provider)
   })
 }
 

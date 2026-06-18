@@ -6,6 +6,7 @@ interface LayoutProps {
   theme: ThemeType
   sidebarWidth: number
   rightPanelWidth: number
+  rightPanelCollapsed?: boolean
   onSidebarResize: (width: number) => void
   onRightPanelResize: (width: number) => void
   menuBar: ReactNode
@@ -19,6 +20,7 @@ export default function Layout({
   theme,
   sidebarWidth,
   rightPanelWidth,
+  rightPanelCollapsed = false,
   onSidebarResize,
   onRightPanelResize,
   menuBar,
@@ -45,10 +47,10 @@ export default function Layout({
         <ResizablePanel
           direction="right"
           width={rightPanelWidth}
-          minWidth={0}
-          maxWidth={400}
+          minWidth={280}
+          maxWidth={600}
           onResize={onRightPanelResize}
-          collapsed={rightPanelWidth === 0}
+          collapsed={rightPanelCollapsed || rightPanelWidth === 0}
         >
           <div className={styles.rightPanel}>{rightPanel}</div>
         </ResizablePanel>

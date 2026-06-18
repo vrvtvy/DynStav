@@ -1,0 +1,361 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dialog {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  width: 55%;
+  max-width: 780px;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.closeBtn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.closeBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+  gap: var(--spacing-md);
+}
+
+/* ─── 左侧供应商列表 ─── */
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding-right: var(--spacing-md);
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-sm);
+}
+
+.sidebarTitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.addBtn {
+  padding: 3px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-speed);
+}
+
+.addBtn:hover {
+  background: var(--bg-hover);
+}
+
+.providerList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--spacing-sm);
+}
+
+.emptyHint {
+  padding: var(--spacing-lg) var(--spacing-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.providerItem {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--transition-speed);
+  margin-bottom: 2px;
+}
+
+.providerItem:hover {
+  background: var(--bg-hover);
+}
+
+.providerItemActive {
+  background: var(--bg-hover);
+  border: 1px solid var(--accent-primary);
+}
+
+.providerRadio {
+  display: flex;
+  align-items: center;
+}
+
+.providerInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.providerName {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providerSub {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.delBtn {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.delBtn:hover {
+  background: var(--accent-danger);
+  color: #fff;
+}
+
+/* ─── 右侧表单 ─── */
+.formArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+}
+
+.formEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.formGroup {
+  margin-bottom: var(--spacing-md);
+}
+
+.formRow {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.formRow .formGroup {
+  flex: 1;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.helpIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: help;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.helpIcon:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--accent-primary);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.testRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.testBtn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-speed);
+}
+
+.testBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.testBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.testResult {
+  font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.testOk {
+  color: var(--accent-success);
+}
+
+.testFail {
+  color: var(--accent-danger);
+}
+
+.error {
+  padding: var(--spacing-sm) 0;
+  color: var(--accent-danger);
+  font-size: var(--font-size-sm);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  margin-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.cancelBtn {
+  padding: 6px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: background var(--transition-speed);
+}
+
+.cancelBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.saveBtn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent-primary);
+  color: #ffffff;
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: filter var(--transition-speed);
+}
+
+.saveBtn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -1,4 +1,13 @@
-import { BlockInfo, BlockDailyStats, QueryParams, AppConfig, ThsUserDirEntry } from './types'
+import {
+  BlockInfo,
+  BlockDailyStats,
+  QueryParams,
+  AppConfig,
+  ThsUserDirEntry,
+  AiChatRequest,
+  AiChatChunk,
+  AiProviderConfig
+} from './types'
 
 declare global {
   interface Window {
@@ -6,6 +15,7 @@ declare global {
       minimizeWindow: () => void
       maximizeWindow: () => void
       closeWindow: () => void
+      notifyRendererReady: () => void
       getBlocks: () => Promise<BlockInfo[]>
       queryStats: (params: QueryParams) => Promise<BlockDailyStats[]>
       syncData: () => Promise<void>
@@ -29,6 +39,14 @@ declare global {
       restoreBackup: (path: string) => Promise<void>
       triggerBackup: () => Promise<void>
       onBackupRestored: (callback: () => void) => () => void
+      // AI 对话分析
+      aiChat: (request: AiChatRequest) => Promise<{ requestId: string }>
+      aiCancel: (requestId: string) => void
+      onAiChatStarted: (callback: (requestId: string) => void) => () => void
+      onAiChatChunk: (callback: (data: { requestId: string; chunk: AiChatChunk }) => void) => () => void
+      aiListProviders: () => Promise<{ providers: AiProviderConfig[]; activeId: string | null }>
+      aiSaveProviders: (data: { providers: AiProviderConfig[]; activeId: string | null }) => Promise<{ providers: AiProviderConfig[]; activeId: string | null }>
+      aiTestProvider: (provider: AiProviderConfig) => Promise<{ ok: boolean; message: string }>
     }
   }
 }

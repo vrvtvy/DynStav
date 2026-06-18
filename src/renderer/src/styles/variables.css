@@ -18,6 +18,19 @@
   --transition-speed: 0.2s;
 }
 
+/* 字体大小档位：small 保持默认，medium / large 逐级放大 */
+:root[data-font-size="large"] {
+  --font-size-sm: 14px;
+  --font-size-md: 15px;
+  --font-size-lg: 17px;
+}
+
+:root[data-font-size="small"] {
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 13px;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;

@@ -2,7 +2,17 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { IPC_CHANNELS, BlockInfo, BlockDailyStats, QueryParams, AppConfig, ThsUserDirEntry } from '../renderer/src/types'
+import {
+  IPC_CHANNELS,
+  BlockInfo,
+  BlockDailyStats,
+  QueryParams,
+  AppConfig,
+  ThsUserDirEntry,
+  AiChatRequest,
+  AiChatChunk,
+  AiProviderConfig
+} from '../renderer/src/types'
 
 // 读取配置中的主题与 setup 状态，写入 localStorage 供 index.html 的 <head>
 // 内联脚本（主题）和 App.tsx（setup 状态）同步读取。
@@ -17,6 +27,8 @@ try {
     const cfg = JSON.parse(readFileSync(cfgPath, 'utf-8'))
     localStorage.setItem('appTheme', cfg.theme === 'light' ? 'light' : 'dark')
     localStorage.setItem('appSetupComplete', cfg.thsUserDir ? '1' : '0')
+    if (cfg.fontSize) localStorage.setItem('appFontSize', cfg.fontSize)
+    if (cfg.rightPanelWidth !== undefined) localStorage.setItem('rightPanelWidth', String(cfg.rightPanelWidth))
   }
 } catch { }
 
@@ -24,6 +36,7 @@ const electronAPI = {
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),
   closeWindow: () => ipcRenderer.send('window-close'),
+  notifyRendererReady: () => ipcRenderer.send('renderer-ready'),
 
   getBlocks: (): Promise<BlockInfo[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.GET_BLOCKS),
@@ -100,7 +113,36 @@ const electronAPI = {
   onConfigLoaded: (callback: (theme: string) => void) => {
     ipcRenderer.on('config-loaded', (_event, theme) => callback(theme))
     return () => ipcRenderer.removeAllListeners('config-loaded')
-  }
+  },
+
+  // ─── AI 对话分析 ───
+  aiChat: (request: AiChatRequest): Promise<{ requestId: string }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_CHAT, request),
+
+  aiCancel: (requestId: string): void => {
+    ipcRenderer.send(IPC_CHANNELS.AI_CANCEL, requestId)
+  },
+
+  onAiChatStarted: (callback: (requestId: string) => void) => {
+    const handler = (_event: unknown, requestId: string) => callback(requestId)
+    ipcRenderer.on(IPC_CHANNELS.AI_CHAT_STARTED, handler)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.AI_CHAT_STARTED, handler as any)
+  },
+
+  onAiChatChunk: (callback: (data: { requestId: string; chunk: AiChatChunk }) => void) => {
+    const handler = (_event: unknown, data: { requestId: string; chunk: AiChatChunk }) => callback(data)
+    ipcRenderer.on(IPC_CHANNELS.AI_CHAT_CHUNK, handler)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.AI_CHAT_CHUNK, handler as any)
+  },
+
+  aiListProviders: (): Promise<{ providers: AiProviderConfig[]; activeId: string | null }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_LIST_PROVIDERS),
+
+  aiSaveProviders: (data: { providers: AiProviderConfig[]; activeId: string | null }): Promise<{ providers: AiProviderConfig[]; activeId: string | null }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_SAVE_PROVIDERS, data),
+
+  aiTestProvider: (provider: AiProviderConfig): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_TEST_PROVIDER, provider)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

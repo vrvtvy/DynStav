@@ -128,17 +128,22 @@ app.whenReady().then(async () => {
     mainWindow.setBounds(config.windowBounds)
   }
 
-  // 配置完整: 自动同步数据
+  // 配置完整: 等待渲染器就绪后再同步数据。
+  // 直接 await syncAllData + send('sync-done') 存在竞态：
+  // 同步可能（尤其 ini 未变化时）在渲染器注册 onSyncDone 监听器之前就完成，
+  // 导致 fire-and-forget 的 sync-done 事件被丢弃，页面数据不刷新。
+  // 改为监听 renderer-ready 信号，确保渲染器 React 已挂载并注册了监听器后再同步。
   if (config.stockblockIniPath) {
-    try {
-      await syncAllData(config.stockblockIniPath)
-    } catch (e) {
-      log.error('启动时数据同步失败，可稍后手动同步:', e)
-    }
-    // 无论同步是否成功，通知渲染器数据库可能已更新，刷新内存缓存
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('sync-done')
-    }
+    ipcMain.once('renderer-ready', async () => {
+      try {
+        await syncAllData(config.stockblockIniPath)
+      } catch (e) {
+        log.error('启动时数据同步失败，可稍后手动同步:', e)
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('sync-done')
+      }
+    })
   }
 
   app.on('activate', () => {

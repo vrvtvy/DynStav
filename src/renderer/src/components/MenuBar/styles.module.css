@@ -59,6 +59,83 @@
   transition: background var(--transition-speed);
 }
 
+.fontSizeBtn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1;
+  transition: background var(--transition-speed);
+}
+
+.fontIcon {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.fontLabel {
+  font-size: var(--font-size-sm);
+}
+
+.fontSizeBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ─── AI 面板切换按钮 ─── */
+.aiPanelBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.aiPanelBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.aiPanelBtnActive {
+  color: var(--accent-primary);
+}
+
+.aiPanelBtnActive:hover {
+  color: var(--accent-primary);
+}
+
+.aiIcon {
+  font-size: 16px;
+  line-height: 1;
+  filter: grayscale(0.3);
+}
+
+.aiPanelBtnActive .aiIcon {
+  filter: grayscale(0);
+}
+
+.aiDot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-success, #4caf50);
+}
+
 .themeBtn:hover,
 .winBtn:hover {
   background: var(--bg-hover);
