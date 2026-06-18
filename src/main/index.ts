@@ -135,6 +135,10 @@ app.whenReady().then(async () => {
     } catch (e) {
       log.error('启动时数据同步失败，可稍后手动同步:', e)
     }
+    // 无论同步是否成功，通知渲染器数据库可能已更新，刷新内存缓存
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('sync-done')
+    }
   }
 
   app.on('activate', () => {

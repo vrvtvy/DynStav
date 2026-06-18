@@ -73,6 +73,31 @@ export default function App() {
     }
   }, [setupComplete])
 
+  // 监听主进程的数据同步完成通知（启动自动同步 / 手动同步均会触发）
+  // 确保数据库更新后渲染器内存中的板块列表、最新日期和查询结果及时刷新
+  useEffect(() => {
+    if (!setupComplete) return
+    const unsub = window.electronAPI.onSyncDone(async () => {
+      await loadBlocks()
+      await loadLatestDate()
+      // 有当前查询参数则用新数据重查，否则用默认7日参数发起首次查询
+      if (queryParams.blockCode) {
+        handleSearch(queryParams)
+      } else {
+        const [freshBlocks, freshDate] = await Promise.all([
+          window.electronAPI.getBlocks(),
+          window.electronAPI.getLatestDate()
+        ])
+        if (freshBlocks.length > 0 && freshDate) {
+          const code = freshBlocks[0].code
+          const { startDate, endDate } = getTradingDateRange(7, freshDate)
+          handleSearch({ startDate, endDate, blockCode: code })
+        }
+      }
+    })
+    return unsub
+  }, [setupComplete, queryParams])
+
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(''), 3000)
@@ -112,16 +137,7 @@ export default function App() {
     await window.electronAPI.syncData()
     setSyncing(false)
     showToast('数据同步完成')
-    await loadBlocks()
-    await loadLatestDate()
-    // 同步后刷新查询：有当前参数则重查，否则用默认7日
-    if (queryParams.blockCode) {
-      handleSearch(queryParams)
-    } else if (blocks.length > 0) {
-      const code = selectedBlock || blocks[0]?.code
-      const { startDate, endDate } = getTradingDateRange(7, latestDate)
-      handleSearch({ startDate, endDate, blockCode: code })
-    }
+    // 数据刷新由 onSyncDone 事件监听器统一处理
   }
 
   function handleBlockClick(blockCode: string) {
