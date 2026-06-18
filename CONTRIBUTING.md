@@ -68,6 +68,7 @@ pnpm dev          # 启动开发环境
 ```
 src/
 ├── main/              # Electron 主进程
+│   ├── ai/            # AI 对话服务（流式聊天、模型适配）
 │   ├── analyzer/      # 数据分析计算
 │   ├── config-parser/ # 同花顺配置文件解析
 │   ├── data-fetcher/  # 行情数据获取

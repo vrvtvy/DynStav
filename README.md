@@ -31,8 +31,10 @@ DynStav 是一款 **Windows 桌面应用**（基于 Electron + React + TypeScrip
 
 - 🔍 **自动识别同花顺目录**：扫描注册表 + 常见安装路径，也支持手动选择。
 - 📊 **多指标可视化**：柱状图（总成交额）+ 平滑曲线（其余指标），点击数据项切换高亮与纵坐标。
+- 🤖 **AI 板块分析**：右侧 AI 对话面板，基于当前板块的真实行情数据进行智能分析，支持 OpenAI / Azure / Anthropic / 自定义模型接口。
 - 🗓️ **交易日筛选**：仅可选 A 股交易日，默认展示最近 7 个交易日。
 - 🎨 **明暗双主题**：默认暗色，选用**无障碍配色**。
+- 🔤 **字体大小调节**：三档字体大小（小 / 中 / 大），一键切换，重启保持。
 - 🖥️ **VSCode 风格布局**：菜单栏 / 主侧栏 / 图表区 / 辅侧栏 / 状态栏，侧栏可拖拽调节、可收起。
 - 💾 **本地持久化**：SQLite 存储，退出前自动备份；数据完全留在你本机。
 - 🚀 **首次引导**：三步上手流程，新手也能快速配置。
@@ -100,6 +102,7 @@ pnpm dist         # 打包 Windows 安装程序（输出到 release/）
 ```
 src/
 ├── main/                 # Electron 主进程
+│   ├── ai/               # AI 对话服务（流式聊天、模型适配）
 │   ├── analyzer/         # 数据分析计算
 │   ├── config-parser/    # 同花顺配置文件解析 (GB18030)
 │   ├── data-fetcher/     # 行情数据获取 (腾讯行情接口)
@@ -123,6 +126,7 @@ src/
 | 框架     | Electron 33、React 18、TypeScript 5 |
 | 构建     | electron-vite、electron-builder     |
 | 可视化   | ECharts 5、echarts-for-react        |
+| AI 对话  | OpenAI / Azure / Anthropic / 自定义兼容接口 |
 | 数据存储 | sql.js（SQLite 的 WASM 版本）       |
 | 日志     | electron-log                        |
 | 编码处理 | iconv-lite（解析 GB18030 配置）     |
