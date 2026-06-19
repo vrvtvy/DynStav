@@ -59,6 +59,46 @@ export default function GuideContent() {
           </p>
         </div>
       </div>
+
+      {/* ── AI 分析配置（绿色） ── */}
+      <div className={welcomeStyles.tutorialCard}>
+        <svg className={welcomeStyles.cardIcon} viewBox="0 0 24 24" fill="none" stroke="var(--accent-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        <div className={welcomeStyles.cardContent}>
+          <h3 className={welcomeStyles.cardTitle} style={{ color: 'var(--accent-primary)' }}>AI 分析配置</h3>
+          <p className={welcomeStyles.cardTextBlue}>
+            DynStav 内置 AI 板块分析面板，可接入您的 AI 模型进行智能分析。
+          </p>
+          <div className={welcomeStyles.tutorialSteps}>
+            <div className={welcomeStyles.tutorialStep}>
+              <span className={welcomeStyles.tutorialNum}>1</span>
+              <span>点击右侧面板顶部工具栏的齿轮图标，打开 AI 模型配置弹窗</span>
+            </div>
+            <div className={welcomeStyles.tutorialStep}>
+              <span className={welcomeStyles.tutorialNum}>2</span>
+              <span>点击「新增」添加供应商，填写名称、选择接口模板（OpenAI / Azure / Anthropic / 自定义），填入 API 地址和密钥</span>
+            </div>
+            <div className={welcomeStyles.tutorialStep}>
+              <span className={welcomeStyles.tutorialNum}>3</span>
+              <span>在模型列表区域点击「添加模型」，配置模型的 API 名称、显示名、Temperature 等参数；需要时可添加自定义参数</span>
+            </div>
+            <div className={welcomeStyles.tutorialStep}>
+              <span className={welcomeStyles.tutorialNum}>4</span>
+              <span>点击模型下的「测试连接」按钮验证配置是否正常，然后点击「保存」</span>
+            </div>
+            <div className={welcomeStyles.tutorialStep}>
+              <span className={welcomeStyles.tutorialNum}>5</span>
+              <span>回到 AI 对话面板，输入框左下角的模型选择器可随时切换当前使用的模型</span>
+            </div>
+          </div>
+          <p className={welcomeStyles.cardTextBlue}>
+            每个供应商可以配置多个模型，并可为每个模型单独设置自定义请求参数<br/>
+            （如 reasoning_effort、top_p 等），满足不同场景的分析需求。
+          </p>
+        </div>
+      </div>
     </>
   )
 }
