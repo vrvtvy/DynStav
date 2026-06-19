@@ -247,6 +247,24 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC_CHANNELS.AI_TEST_PROVIDER, async (_event, provider) => {
     return testProvider(provider)
   })
+
+  // ─── AI 对话历史 ───
+
+  safeHandle(IPC_CHANNELS.AI_LIST_SESSIONS, (_event, blockCode: string) => {
+    return getRepository().getChatSessions(blockCode)
+  })
+
+  safeHandle(IPC_CHANNELS.AI_GET_SESSION, (_event, sessionId: string) => {
+    return getRepository().getChatMessages(sessionId)
+  })
+
+  safeHandle(IPC_CHANNELS.AI_SAVE_SESSION, (_event, data: { session: any; messages: any[] }) => {
+    getRepository().saveChatSession(data.session, data.messages)
+  })
+
+  safeHandle(IPC_CHANNELS.AI_DELETE_SESSION, (_event, sessionId: string) => {
+    getRepository().deleteChatSession(sessionId)
+  })
 }
 
 export async function syncAllData(iniPath?: string, force = false): Promise<void> {

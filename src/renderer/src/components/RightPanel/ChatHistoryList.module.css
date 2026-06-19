@@ -1,0 +1,119 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-sm);
+}
+
+.backBtn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.backBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.headerTitle {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background var(--transition-speed);
+}
+
+.item:hover {
+  background: var(--bg-hover);
+}
+
+.itemActive {
+  background: var(--bg-tertiary);
+  border-left: 3px solid var(--accent-primary);
+}
+
+.itemMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemMeta {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.deleteBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-speed), background var(--transition-speed), color var(--transition-speed);
+  flex-shrink: 0;
+}
+
+.item:hover .deleteBtn {
+  opacity: 1;
+}
+
+.deleteBtn:hover {
+  background: rgba(244, 71, 71, 0.1);
+  color: var(--accent-danger);
+}

@@ -58,6 +58,9 @@
   cursor: pointer;
   font-size: 13px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: background var(--transition-speed);
 }
 

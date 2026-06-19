@@ -2,9 +2,12 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   AiProviderConfig,
   BlockDailyStats,
-  ChatMessage
+  ChatMessage,
+  ChatSession,
+  ChatSessionMessage
 } from '../../types'
 import { buildBlockContext, renderMarkdown } from './context'
+import ChatHistoryList from './ChatHistoryList'
 import styles from './AiChat.module.css'
 
 interface AiChatProps {
@@ -29,11 +32,22 @@ interface UiMessage {
 const QUICK_PROMPTS = [
   '这个板块当前趋势如何？',
   '从资金流向看是否存在短期机会？',
-  '结合最近走势，这个板块风险点在哪里？'
+  '结合最近走势，这个板块的风险点在哪里？'
 ]
 
 function genMsgId(): string {
   return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+}
+
+function genSessionId(): string {
+  return `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+}
+
+/** 从消息列表提取会话标题（取第一条用户消息前 30 字） */
+function deriveTitle(msgs: UiMessage[]): string {
+  const first = msgs.find(m => m.role === 'user' && m.content)
+  if (!first) return '新对话'
+  return first.content.slice(0, 30) + (first.content.length > 30 ? '…' : '')
 }
 
 export default function AiChat({
@@ -47,9 +61,18 @@ export default function AiChat({
   const [messages, setMessages] = useState<UiMessage[]>([])
   const [input, setInput] = useState('')
   const [pendingRequestId, setPendingRequestId] = useState<string | null>(null)
-  const [history, setHistory] = useState<{ blockCode: string; blockName: string; messages: UiMessage[] }[]>([])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [sessions, setSessions] = useState<ChatSession[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // 切换板块时跳过首次自动保存（此时 messages 是空的初始状态）
+  const isInitialMount = useRef(true)
+  // 用 ref 持有最新消息，供切换板块的 effect 闭包中读取
+  const messagesRef = useRef<UiMessage[]>([])
+  messagesRef.current = messages
+  // 追踪上一个板块信息，用于切换时保存旧会话
+  const prevBlockRef = useRef({ blockCode, blockName })
 
   /** 自动调整输入框高度：随内容增长，最高 9 行后出滚动条 */
   function resizeTextarea() {
@@ -75,13 +98,120 @@ export default function AiChat({
 
   const hasProvider = providers.length > 0 && !!activeProvider
 
+  // ─── 会话持久化 ───
+
+  /** 将当前消息保存到数据库（创建或更新会话） */
+  const saveCurrentSession = useCallback(async () => {
+    const toSave = messagesRef.current.filter(m => !m.streaming && m.content && m.role !== 'system')
+    if (toSave.length === 0) return
+
+    let sid = currentSessionId
+    if (!sid) {
+      sid = genSessionId()
+      setCurrentSessionId(sid)
+    }
+
+    const now = new Date().toISOString()
+    const session: ChatSession = {
+      id: sid,
+      blockCode,
+      blockName,
+      title: deriveTitle(toSave),
+      createdAt: now,
+      updatedAt: now
+    }
+    const dbMessages: ChatSessionMessage[] = toSave.map(m => ({
+      id: m.id,
+      sessionId: sid!,
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+      createdAt: now,
+      error: m.error
+    }))
+
+    await window.electronAPI.aiSaveSession({ session, messages: dbMessages })
+  }, [currentSessionId, blockCode, blockName])
+
+  /** 从数据库加载会话消息并展示 */
+  const loadSessionMessages = useCallback(async (sessionId: string) => {
+    const dbMsgs = await window.electronAPI.aiGetSession(sessionId)
+    const uiMsgs: UiMessage[] = dbMsgs.map(m => ({
+      id: m.id,
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+      error: m.error || false
+    }))
+    setMessages(uiMsgs)
+    setCurrentSessionId(sessionId)
+  }, [])
+
+  // ─── 切换板块 / 初始加载 ───
+
+  useEffect(() => {
+    const prevMessages = messagesRef.current
+    const prevSessionId = currentSessionId
+
+    // 非首次挂载且有消息 → 保存上一个板块的会话
+    if (!isInitialMount.current && prevMessages.length > 0 && prevMessages.some(m => m.role !== 'system') && prevSessionId) {
+      const toSave = prevMessages.filter(m => !m.streaming && m.content && m.role !== 'system')
+      if (toSave.length > 0) {
+        const now = new Date().toISOString()
+        const { blockCode: prevCode, blockName: prevName } = prevBlockRef.current
+        window.electronAPI.aiSaveSession({
+          session: {
+            id: prevSessionId,
+            blockCode: prevCode,
+            blockName: prevName,
+            title: deriveTitle(toSave),
+            createdAt: now,
+            updatedAt: now
+          },
+          messages: toSave.map(m => ({
+            id: m.id,
+            sessionId: prevSessionId,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            createdAt: now,
+            error: m.error
+          }))
+        })
+      }
+    }
+    // 更新 prevBlockRef 为当前板块
+    prevBlockRef.current = { blockCode, blockName }
+    isInitialMount.current = false
+
+    // 清空当前状态
+    setMessages([])
+    setCurrentSessionId(null)
+    setHistoryOpen(false)
+
+    // 加载目标板块的最近会话
+    window.electronAPI.aiListSessions(blockCode).then(list => {
+      setSessions(list)
+      if (list.length > 0) {
+        loadSessionMessages(list[0].id)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockCode])
+
+  // AI 回复完成后自动保存会话
+  useEffect(() => {
+    if (pendingRequestId) return // 流式进行中不保存
+    if (messages.length === 0) return
+    const hasAssistant = messages.some(m => m.role === 'assistant' && !m.streaming && m.content)
+    if (!hasAssistant) return
+    saveCurrentSession()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, pendingRequestId])
+
   // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // 监听 AI_CHAT_STARTED 事件：主进程在 streamChat 开始前立即推送 requestId，
-  // 使渲染层能在首个 chunk 到达前设置 pendingRequestId，避免时序竞态。
+  // 监听 AI_CHAT_STARTED 事件
   useEffect(() => {
     const unsub = window.electronAPI.onAiChatStarted((requestId) => {
       setPendingRequestId(requestId)
@@ -89,20 +219,18 @@ export default function AiChat({
     return unsub
   }, [])
 
-  // 流式回调：监听主进程 chunk，按 requestId 追加到对应 assistant 消息
+  // 流式回调
   useEffect(() => {
     const unsub = window.electronAPI.onAiChatChunk((data) => {
       if (data.requestId !== pendingRequestId) return
       const { delta, done, error } = data.chunk
       setMessages(prev => {
         const next = [...prev]
-        // 流式消息固定为列表最后一条（assistant streaming）
         const last = next[next.length - 1]
         if (last && last.role === 'assistant' && last.streaming) {
           if (error) {
             last.content = last.content || ''
             last.error = true
-            // 若已有内容保留内容，否则显示错误
             if (!last.content) last.content = error
             else last.content += `\n\n⚠️ ${error}`
             last.streaming = false
@@ -120,18 +248,6 @@ export default function AiChat({
     return unsub
   }, [pendingRequestId])
 
-  // 切换板块时，把当前对话存入历史并清空（保留会话历史，符合需求 §2.4）
-  useEffect(() => {
-    if (messages.length > 0 && messages.some(m => m.role !== 'system')) {
-      setHistory(prev => [
-        { blockCode, blockName, messages },
-        ...prev.filter(h => h.blockCode !== blockCode)
-      ].slice(0, 20))
-    }
-    setMessages([])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blockCode])
-
   const send = useCallback(
     async (text: string) => {
       const content = text.trim()
@@ -141,24 +257,25 @@ export default function AiChat({
         return
       }
 
+      // 如果没有当前会话，创建一个
+      if (!currentSessionId) {
+        setCurrentSessionId(genSessionId())
+      }
+
       const userMsg: UiMessage = { id: genMsgId(), role: 'user', content }
       const assistantMsg: UiMessage = { id: genMsgId(), role: 'assistant', content: '', streaming: true }
       const context = buildBlockContext(blockName, blockCode, stats)
 
       setMessages(prev => [...prev, userMsg, assistantMsg])
       setInput('')
-      // 发送后重置输入框高度
       requestAnimationFrame(resizeTextarea)
 
-      // 构造发送给后端的消息：携带近期会话（最近 6 条）
       const recent: ChatMessage[] = [
         ...messages.filter(m => !m.error).slice(-6).map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content }
       ]
 
       try {
-        // requestId 已通过 AI_CHAT_STARTED 事件提前设置，此处 invoke 仅用于
-        // 等待 streamChat 完成（方便未来做完成后的清理或重试逻辑）。
         await window.electronAPI.aiChat({
           providerId: activeProvider!.id,
           messages: recent,
@@ -177,7 +294,7 @@ export default function AiChat({
         })
       }
     },
-    [pendingRequestId, hasProvider, messages, blockName, blockCode, stats, activeProvider, onOpenConfig]
+    [pendingRequestId, hasProvider, messages, blockName, blockCode, stats, activeProvider, onOpenConfig, currentSessionId]
   )
 
   function handleStop() {
@@ -197,11 +314,12 @@ export default function AiChat({
   }
 
   function handleClear() {
+    // 清空当前对话，下次发送时创建新会话
     setMessages([])
+    setCurrentSessionId(null)
   }
 
   function handleReanalyze() {
-    // 重新分析 = 复用最近用户提问；若无则发默认分析请求
     const lastUser = [...messages].reverse().find(m => m.role === 'user')
     const prompt = lastUser?.content || `请综合分析「${blockName}」板块的当前走势、资金流向、风险与机会。`
     send(prompt)
@@ -212,6 +330,34 @@ export default function AiChat({
       e.preventDefault()
       send(input)
     }
+  }
+
+  // ─── 历史会话操作 ───
+
+  async function handleOpenHistory() {
+    const list = await window.electronAPI.aiListSessions(blockCode)
+    setSessions(list)
+    setHistoryOpen(true)
+  }
+
+  async function handleSelectSession(sessionId: string) {
+    if (sessionId === currentSessionId) {
+      setHistoryOpen(false)
+      return
+    }
+    await loadSessionMessages(sessionId)
+    setHistoryOpen(false)
+  }
+
+  async function handleDeleteSession(sessionId: string) {
+    await window.electronAPI.aiDeleteSession(sessionId)
+    if (sessionId === currentSessionId) {
+      setMessages([])
+      setCurrentSessionId(null)
+    }
+    // 刷新列表
+    const list = await window.electronAPI.aiListSessions(blockCode)
+    setSessions(list)
   }
 
   return (
@@ -228,9 +374,32 @@ export default function AiChat({
           )}
         </div>
         <div className={styles.toolbar}>
-          <button className={styles.toolBtn} onClick={handleReanalyze} disabled={!hasProvider || !!pendingRequestId} title="基于当前板块重新分析">🔄</button>
-          <button className={styles.toolBtn} onClick={handleClear} disabled={!!pendingRequestId} title="清空对话">🧹</button>
-          <button className={styles.toolBtn} onClick={onOpenConfig} title="API 配置">⚙️</button>
+          <button className={styles.toolBtn} onClick={handleClear} disabled={!!pendingRequestId} title="新建对话">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <button className={styles.toolBtn} onClick={handleOpenHistory} title="历史对话">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 12a9 9 0 1 0 2.636-6.364" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M3 4v4.5h4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button className={styles.toolBtn} onClick={handleReanalyze} disabled={!hasProvider || !!pendingRequestId} title="基于当前板块重新分析">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 3v5h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 21v-5h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button className={styles.toolBtn} onClick={onOpenConfig} title="API 配置">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -250,9 +419,17 @@ export default function AiChat({
         </select>
       </div>
 
-      {/* 对话区 */}
+      {/* 对话区 / 历史列表 */}
       <div className={styles.messages}>
-        {messages.length === 0 && (
+        {historyOpen ? (
+          <ChatHistoryList
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onSelect={handleSelectSession}
+            onDelete={handleDeleteSession}
+            onBack={() => setHistoryOpen(false)}
+          />
+        ) : messages.length === 0 ? (
           <div className={styles.welcome}>
             <div className={styles.welcomeIcon}>🤖</div>
             <div className={styles.welcomeTitle}>AI 板块分析</div>
@@ -273,47 +450,47 @@ export default function AiChat({
               <button className={styles.configCta} onClick={onOpenConfig}>⚙️ 配置 AI 模型</button>
             )}
           </div>
+        ) : (
+          messages.map(m => (
+            <div key={m.id} className={`${styles.msgRow} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}>
+              <div className={`${styles.msgAvatar} ${m.role === 'user' ? styles.avatarUser : styles.avatarAssistant}`}>
+                {m.role === 'user' ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="8" r="4.5" fill="currentColor"/>
+                    <path d="M3.5 21c0-4.14 3.86-7.5 8.5-7.5s8.5 3.36 8.5 7.5" fill="currentColor"/>
+                  </svg>
+                ) : '🤖'}
+              </div>
+              <div className={`${styles.msgBubble} ${m.error ? styles.msgError : ''}`}>
+                {m.role === 'assistant' && m.streaming && !m.content && (
+                  <span className={styles.typing}>
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                  </span>
+                )}
+                {m.content && (
+                  <div
+                    className={styles.msgContent}
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
+                  />
+                )}
+                {m.role === 'assistant' && !m.streaming && m.content && !m.error && (
+                  <>
+                    <div className={styles.disclaimer}>
+                      以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，入市需谨慎。
+                    </div>
+                    <button
+                      className={styles.copyBtn}
+                      onClick={() => navigator.clipboard.writeText(m.content)}
+                      title="复制"
+                    >📋</button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))
         )}
-
-        {messages.map(m => (
-          <div key={m.id} className={`${styles.msgRow} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}>
-            <div className={`${styles.msgAvatar} ${m.role === 'user' ? styles.avatarUser : styles.avatarAssistant}`}>
-              {m.role === 'user' ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="8" r="4.5" fill="currentColor"/>
-                  <path d="M3.5 21c0-4.14 3.86-7.5 8.5-7.5s8.5 3.36 8.5 7.5" fill="currentColor"/>
-                </svg>
-              ) : '🤖'}
-            </div>
-            <div className={`${styles.msgBubble} ${m.error ? styles.msgError : ''}`}>
-              {m.role === 'assistant' && m.streaming && !m.content && (
-                <span className={styles.typing}>
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                </span>
-              )}
-              {m.content && (
-                <div
-                  className={styles.msgContent}
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
-                />
-              )}
-              {m.role === 'assistant' && !m.streaming && m.content && !m.error && (
-                <>
-                  <div className={styles.disclaimer}>
-                    以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，入市需谨慎。
-                  </div>
-                  <button
-                    className={styles.copyBtn}
-                    onClick={() => navigator.clipboard.writeText(m.content)}
-                    title="复制"
-                  >📋</button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
         <div ref={messagesEndRef} />
       </div>
 

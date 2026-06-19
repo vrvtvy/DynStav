@@ -162,6 +162,27 @@ export interface ThsUserDirEntry {
   label: string
 }
 
+/** AI 对话会话（持久化） */
+export interface ChatSession {
+  id: string
+  blockCode: string
+  blockName: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messageCount?: number
+}
+
+/** AI 对话消息（持久化） */
+export interface ChatSessionMessage {
+  id: string
+  sessionId: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: string
+  error?: boolean
+}
+
 /** IPC 事件通道 */
 export const IPC_CHANNELS = {
   GET_BLOCKS: 'get-blocks',
@@ -191,5 +212,9 @@ export const IPC_CHANNELS = {
   AI_CANCEL: 'ai-cancel',
   AI_LIST_PROVIDERS: 'ai-list-providers',
   AI_SAVE_PROVIDERS: 'ai-save-providers',
-  AI_TEST_PROVIDER: 'ai-test-provider'
+  AI_TEST_PROVIDER: 'ai-test-provider',
+  AI_LIST_SESSIONS: 'ai-list-sessions',
+  AI_GET_SESSION: 'ai-get-session',
+  AI_SAVE_SESSION: 'ai-save-session',
+  AI_DELETE_SESSION: 'ai-delete-session'
 } as const

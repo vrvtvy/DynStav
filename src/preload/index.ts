@@ -11,7 +11,9 @@ import {
   ThsUserDirEntry,
   AiChatRequest,
   AiChatChunk,
-  AiProviderConfig
+  AiProviderConfig,
+  ChatSession,
+  ChatSessionMessage
 } from '../renderer/src/types'
 
 // 读取配置中的主题与 setup 状态，写入 localStorage 供 index.html 的 <head>
@@ -142,7 +144,20 @@ const electronAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.AI_SAVE_PROVIDERS, data),
 
   aiTestProvider: (provider: AiProviderConfig): Promise<{ ok: boolean; message: string }> =>
-    ipcRenderer.invoke(IPC_CHANNELS.AI_TEST_PROVIDER, provider)
+    ipcRenderer.invoke(IPC_CHANNELS.AI_TEST_PROVIDER, provider),
+
+  // ─── AI 对话历史 ───
+  aiListSessions: (blockCode: string): Promise<ChatSession[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_LIST_SESSIONS, blockCode),
+
+  aiGetSession: (sessionId: string): Promise<ChatSessionMessage[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_GET_SESSION, sessionId),
+
+  aiSaveSession: (data: { session: ChatSession; messages: ChatSessionMessage[] }): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_SAVE_SESSION, data),
+
+  aiDeleteSession: (sessionId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_DELETE_SESSION, sessionId)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)

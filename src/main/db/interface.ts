@@ -1,4 +1,4 @@
-import { BlockDailyStats, BlockInfo, QueryParams } from '../../renderer/src/types'
+import { BlockDailyStats, BlockInfo, QueryParams, ChatSession, ChatSessionMessage } from '../../renderer/src/types'
 
 /** 数据持久层抽象接口 */
 export interface DataRepository {
@@ -34,4 +34,18 @@ export interface DataRepository {
 
   /** 从指定备份恢复数据库 */
   restoreFrom(backupPath: string): void
+
+  // ─── AI 对话历史 ───
+
+  /** 获取某板块的会话列表（按更新时间降序） */
+  getChatSessions(blockCode: string): ChatSession[]
+
+  /** 获取某会话的全部消息 */
+  getChatMessages(sessionId: string): ChatSessionMessage[]
+
+  /** 保存/更新会话及其消息（upsert） */
+  saveChatSession(session: ChatSession, messages: ChatSessionMessage[]): void
+
+  /** 删除某会话（级联删除消息） */
+  deleteChatSession(sessionId: string): void
 }

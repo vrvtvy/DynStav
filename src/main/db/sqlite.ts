@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, copyFileSync, renameSync, read
 import { join } from 'path'
 import { app } from 'electron'
 import { getDataPath } from '../paths'
-import { BlockDailyStats, BlockInfo, QueryParams } from '../../renderer/src/types'
+import { BlockDailyStats, BlockInfo, QueryParams, ChatSession, ChatSessionMessage } from '../../renderer/src/types'
 import log from 'electron-log/main'
 import { DataRepository } from './interface'
 
@@ -61,6 +61,7 @@ export class SqliteRepository implements DataRepository {
 
     const savedSorts = this.saveSortOrders()
     this.fixBlocksTable()
+    this.initChatTables()
     this.runMigrations()
     this.restoreSortOrders(savedSorts)
     this.save()
@@ -337,6 +338,132 @@ export class SqliteRepository implements DataRepository {
     const data = this.db.export()
     const buffer = Buffer.from(data)
     this.atomicWrite(this.dbPath, buffer)
+  }
+
+  private initChatTables(): void {
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        block_code TEXT NOT NULL,
+        block_name TEXT NOT NULL,
+        title TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `)
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        error INTEGER DEFAULT 0
+      )
+    `)
+    // 为按板块查询会话建立索引
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_chat_sessions_block ON chat_sessions(block_code, updated_at DESC)`)
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, created_at ASC)`)
+  }
+
+  // ─── AI 对话历史 CRUD ───
+
+  getChatSessions(blockCode: string): ChatSession[] {
+    const stmt = this.db.prepare(`
+      SELECT s.id, s.block_code, s.block_name, s.title, s.created_at, s.updated_at,
+             COUNT(m.id) AS message_count
+      FROM chat_sessions s
+      LEFT JOIN chat_messages m ON m.session_id = s.id
+      WHERE s.block_code = $block_code
+      GROUP BY s.id
+      ORDER BY s.updated_at DESC
+      LIMIT 50
+    `)
+    stmt.bind({ $block_code: blockCode })
+    const results: ChatSession[] = []
+    while (stmt.step()) {
+      const r = stmt.getAsObject() as any
+      results.push({
+        id: r.id,
+        blockCode: r.block_code,
+        blockName: r.block_name,
+        title: r.title,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        messageCount: r.message_count
+      })
+    }
+    stmt.free()
+    return results
+  }
+
+  getChatMessages(sessionId: string): ChatSessionMessage[] {
+    const stmt = this.db.prepare(`
+      SELECT id, session_id, role, content, created_at, error
+      FROM chat_messages
+      WHERE session_id = $session_id
+      ORDER BY created_at ASC
+    `)
+    stmt.bind({ $session_id: sessionId })
+    const results: ChatSessionMessage[] = []
+    while (stmt.step()) {
+      const r = stmt.getAsObject() as any
+      results.push({
+        id: r.id,
+        sessionId: r.session_id,
+        role: r.role,
+        content: r.content,
+        createdAt: r.created_at,
+        error: !!r.error
+      })
+    }
+    stmt.free()
+    return results
+  }
+
+  saveChatSession(session: ChatSession, messages: ChatSessionMessage[]): void {
+    // upsert 会话
+    this.db.run(`
+      INSERT INTO chat_sessions (id, block_code, block_name, title, created_at, updated_at)
+      VALUES ($id, $block_code, $block_name, $title, $created_at, $updated_at)
+      ON CONFLICT(id) DO UPDATE SET
+        title = $title, updated_at = $updated_at
+    `, {
+      $id: session.id,
+      $block_code: session.blockCode,
+      $block_name: session.blockName,
+      $title: session.title,
+      $created_at: session.createdAt,
+      $updated_at: session.updatedAt
+    })
+
+    // 清除旧消息并重新写入（简单可靠，消息量不大）
+    this.db.run('DELETE FROM chat_messages WHERE session_id = $sid', { $sid: session.id })
+
+    const stmt = this.db.prepare(`
+      INSERT INTO chat_messages (id, session_id, role, content, created_at, error)
+      VALUES ($id, $session_id, $role, $content, $created_at, $error)
+    `)
+    for (const m of messages) {
+      stmt.bind({
+        $id: m.id,
+        $session_id: m.sessionId,
+        $role: m.role,
+        $content: m.content,
+        $created_at: m.createdAt,
+        $error: m.error ? 1 : 0
+      })
+      stmt.step()
+      stmt.reset()
+    }
+    stmt.free()
+    this.save()
+  }
+
+  deleteChatSession(sessionId: string): void {
+    this.db.run('DELETE FROM chat_messages WHERE session_id = $sid', { $sid: sessionId })
+    this.db.run('DELETE FROM chat_sessions WHERE id = $sid', { $sid: sessionId })
+    this.save()
   }
 
   close(): void {
