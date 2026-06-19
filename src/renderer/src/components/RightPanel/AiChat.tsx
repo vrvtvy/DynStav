@@ -23,8 +23,12 @@ interface UiMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  /** 模型思考/推理过程内容 */
+  thinkingContent?: string
   /** 是否处于流式接收中（仅 assistant） */
   streaming?: boolean
+  /** 思考内容是否正在流式接收中 */
+  thinkingStreaming?: boolean
   error?: boolean
 }
 
@@ -64,7 +68,14 @@ export default function AiChat({
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [sessions, setSessions] = useState<ChatSession[]>([])
+  /** 思考区块展开状态：messageId → boolean，默认流式中展开、完成后折叠 */
+  const [thinkingExpanded, setThinkingExpanded] = useState<Record<string, boolean>>({})
+  /** 记录用户是否手动折叠过思考区块（流式期间），防止后续 chunk 重新展开 */
+  const userCollapsedRef = useRef<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const latestAssistantRef = useRef<HTMLDivElement>(null)
+  const thinkingScrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   // 切换板块时跳过首次自动保存（此时 messages 是空的初始状态）
   const isInitialMount = useRef(true)
@@ -125,6 +136,7 @@ export default function AiChat({
       sessionId: sid!,
       role: m.role as 'user' | 'assistant',
       content: m.content,
+      thinkingContent: m.thinkingContent,
       createdAt: now,
       error: m.error
     }))
@@ -139,10 +151,15 @@ export default function AiChat({
       id: m.id,
       role: m.role as 'user' | 'assistant',
       content: m.content,
+      thinkingContent: m.thinkingContent || undefined,
       error: m.error || false
     }))
     setMessages(uiMsgs)
     setCurrentSessionId(sessionId)
+    // 从历史加载的消息默认折叠思考区块
+    const expanded: Record<string, boolean> = {}
+    uiMsgs.forEach(m => { if (m.thinkingContent) expanded[m.id] = false })
+    setThinkingExpanded(expanded)
   }, [])
 
   // ─── 切换板块 / 初始加载 ───
@@ -171,6 +188,7 @@ export default function AiChat({
             sessionId: prevSessionId,
             role: m.role as 'user' | 'assistant',
             content: m.content,
+            thinkingContent: m.thinkingContent,
             createdAt: now,
             error: m.error
           }))
@@ -206,9 +224,24 @@ export default function AiChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, pendingRequestId])
 
-  // 自动滚动到底部
+  // 正文区滚动：流式时确保最新回答的头像和开头在可视区域内
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const container = messagesContainerRef.current
+    const msgEl = latestAssistantRef.current
+    if (!container || !msgEl) return
+    // 将消息顶部定位在可视区域顶部上方 36px 处，保留头像和区块开头可见
+    const targetScroll = Math.max(0, msgEl.offsetTop - 36)
+    if (container.scrollTop < targetScroll) {
+      container.scrollTop = targetScroll
+    }
+  }, [messages])
+
+  // 思考区块内部自动滚动到底部（不影响外层消息区滚动）
+  useEffect(() => {
+    const el = thinkingScrollRef.current
+    if (el) {
+      el.scrollTop = el.scrollHeight
+    }
   }, [messages])
 
   // 监听 AI_CHAT_STARTED 事件
@@ -223,7 +256,7 @@ export default function AiChat({
   useEffect(() => {
     const unsub = window.electronAPI.onAiChatChunk((data) => {
       if (data.requestId !== pendingRequestId) return
-      const { delta, done, error } = data.chunk
+      const { delta, thinking, done, error } = data.chunk
       setMessages(prev => {
         const next = [...prev]
         const last = next[next.length - 1]
@@ -234,10 +267,25 @@ export default function AiChat({
             if (!last.content) last.content = error
             else last.content += `\n\n⚠️ ${error}`
             last.streaming = false
+            last.thinkingStreaming = false
+            userCollapsedRef.current.delete(last.id)
+          } else if (thinking) {
+            last.thinkingContent = (last.thinkingContent || '') + thinking
+            last.thinkingStreaming = true
+            // 仅在用户未手动折叠时展开思考区块
+            if (!userCollapsedRef.current.has(last.id)) {
+              setThinkingExpanded(prev => ({ ...prev, [last.id]: true }))
+            }
           } else if (delta) {
             last.content += delta
           } else if (done) {
             last.streaming = false
+            last.thinkingStreaming = false
+            userCollapsedRef.current.delete(last.id)
+            // 流式完成后折叠思考区块
+            if (last.thinkingContent) {
+              setThinkingExpanded(prev => ({ ...prev, [last.id]: false }))
+            }
           }
           return [...next]
         }
@@ -289,6 +337,7 @@ export default function AiChat({
             last.content = `请求发送失败：${e?.message || e}`
             last.error = true
             last.streaming = false
+            last.thinkingStreaming = false
           }
           return [...next]
         })
@@ -306,7 +355,13 @@ export default function AiChat({
         const last = next[next.length - 1]
         if (last && last.role === 'assistant' && last.streaming) {
           last.streaming = false
+          last.thinkingStreaming = false
+          userCollapsedRef.current.delete(last.id)
           if (!last.content) last.content = '（已停止）'
+          // 停止后折叠思考区块
+          if (last.thinkingContent) {
+            setThinkingExpanded(prev => ({ ...prev, [last.id]: false }))
+          }
         }
         return [...next]
       })
@@ -317,6 +372,7 @@ export default function AiChat({
     // 清空当前对话，下次发送时创建新会话
     setMessages([])
     setCurrentSessionId(null)
+    setThinkingExpanded({})
   }
 
   function handleReanalyze() {
@@ -420,7 +476,7 @@ export default function AiChat({
       </div>
 
       {/* 对话区 / 历史列表 */}
-      <div className={styles.messages}>
+      <div className={styles.messages} ref={messagesContainerRef}>
         {historyOpen ? (
           <ChatHistoryList
             sessions={sessions}
@@ -451,8 +507,15 @@ export default function AiChat({
             )}
           </div>
         ) : (
-          messages.map(m => (
-            <div key={m.id} className={`${styles.msgRow} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}>
+          (() => {
+            // 找到最后一条 assistant 消息的 id，用于 ref 绑定
+            const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
+            return messages.map(m => (
+            <div
+              key={m.id}
+              className={`${styles.msgRow} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}
+              ref={m.id === lastAssistantId ? latestAssistantRef : undefined}
+            >
               <div className={`${styles.msgAvatar} ${m.role === 'user' ? styles.avatarUser : styles.avatarAssistant}`}>
                 {m.role === 'user' ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -462,7 +525,48 @@ export default function AiChat({
                 ) : '🤖'}
               </div>
               <div className={`${styles.msgBubble} ${m.error ? styles.msgError : ''}`}>
-                {m.role === 'assistant' && m.streaming && !m.content && (
+                {/* 思考过程区块（可折叠） */}
+                {m.role === 'assistant' && m.thinkingContent && (
+                  <div className={styles.thinkingSection}>
+                    <button
+                      className={styles.thinkingToggle}
+                      onClick={() => {
+                        const willCollapse = thinkingExpanded[m.id]
+                        setThinkingExpanded(prev => ({ ...prev, [m.id]: !prev[m.id] }))
+                        // 流式期间用户手动折叠，记录到 ref 防止后续 chunk 重新展开
+                        if (willCollapse === true && m.thinkingStreaming) {
+                          userCollapsedRef.current.add(m.id)
+                        }
+                      }}
+                    >
+                      <svg
+                        className={`${styles.thinkingArrow} ${thinkingExpanded[m.id] ? styles.thinkingArrowOpen : ''}`}
+                        width="10" height="10" viewBox="0 0 24 24" fill="none"
+                      >
+                        <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className={styles.thinkingLabel}>
+                        {m.thinkingStreaming ? '思考中…' : '思考过程'}
+                      </span>
+                      {m.thinkingStreaming && (
+                        <span className={styles.thinkingPulse} />
+                      )}
+                    </button>
+                    {thinkingExpanded[m.id] && (
+                      <div
+                        className={styles.thinkingContent}
+                        ref={m.streaming ? thinkingScrollRef : undefined}
+                      >
+                        <div
+                          className={styles.thinkingText}
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(m.thinkingContent) }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* 正在思考但尚无内容时的占位指示 */}
+                {m.role === 'assistant' && m.streaming && !m.content && !m.thinkingContent && (
                   <span className={styles.typing}>
                     <span className={styles.dot} />
                     <span className={styles.dot} />
@@ -490,6 +594,7 @@ export default function AiChat({
               </div>
             </div>
           ))
+          })()
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -504,7 +609,7 @@ export default function AiChat({
             onChange={e => { setInput(e.target.value); resizeTextarea() }}
             onKeyDown={handleKeyDown}
             placeholder={hasProvider ? `向 AI 提问「${blockName || '当前板块'}」... (Enter 发送，Shift+Enter 换行)` : '请先配置 AI 模型'}
-            rows={2}
+            rows={3}
             disabled={!!pendingRequestId}
           />
           {pendingRequestId ? (

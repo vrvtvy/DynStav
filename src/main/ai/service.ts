@@ -120,9 +120,9 @@ export async function streamChat(
               // 结束信号
               return finish()
             }
-            if (parsed.delta) {
+            if (parsed.delta || parsed.thinking) {
               deltaCount++
-              onChunk({ delta: parsed.delta, done: false })
+              onChunk({ delta: parsed.delta, thinking: parsed.thinking, done: false })
             }
           } catch (e) {
             log.warn('[AI] parse delta failed: requestId=%s err=%s line=%s', requestId, e, line)

@@ -150,6 +150,8 @@ export interface AiChatRequest {
 export interface AiChatChunk {
   /** 本次片段增量文本 */
   delta: string
+  /** 本次片段思考/推理过程增量 */
+  thinking?: string
   /** 是否结束 */
   done: boolean
   /** 错误信息（done=true 时可能出现） */
@@ -179,6 +181,8 @@ export interface ChatSessionMessage {
   sessionId: string
   role: 'user' | 'assistant'
   content: string
+  /** 模型思考/推理过程内容 */
+  thinkingContent?: string
   createdAt: string
   error?: boolean
 }

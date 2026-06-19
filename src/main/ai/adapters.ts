@@ -1,5 +1,5 @@
 import { AiProviderConfig, ChatMessage } from '../../renderer/src/types'
-import { ProviderAdapter } from './types'
+import { ProviderAdapter, ParsedDelta } from './types'
 /** 规范化 baseUrl，去掉末尾斜杠。 */
 function trimBase(url: string): string {
   return (url || '').replace(/\/+$/, '')
@@ -26,15 +26,18 @@ export const openaiAdapter: ProviderAdapter = {
     })
     return { url, method: 'POST', headers, body }
   },
-  parseDelta(line) {
+  parseDelta(line): ParsedDelta | null {
     // OpenAI SSE 以 "data: " 前缀；[DONE] 表示结束
     if (line.startsWith('data:')) {
       const payload = line.slice(5).trim()
       if (payload === '[DONE]') return null
       try {
         const json = JSON.parse(payload)
-        const delta = json?.choices?.[0]?.delta?.content ?? ''
-        return { delta }
+        const choice = json?.choices?.[0]
+        const delta = choice?.delta?.content ?? ''
+        // DeepSeek R1: reasoning_content；部分供应商: reasoning
+        const thinking = choice?.delta?.reasoning_content ?? choice?.delta?.reasoning ?? ''
+        return { delta, thinking: thinking || undefined }
       } catch {
         return { delta: '' }
       }
@@ -88,17 +91,18 @@ export const anthropicAdapter: ProviderAdapter = {
     // Claude 把 system 独立成顶层字段
     const sys = messages.find(m => m.role === 'system')?.content
     const conv = messages.filter(m => m.role !== 'system')
-    const body = JSON.stringify({
+    const bodyObj: Record<string, any> = {
       model: config.model,
       ...(sys ? { system: sys } : {}),
       messages: conv,
       temperature: config.temperature ?? 0.3,
-      max_tokens: 1024,
+      max_tokens: 4096,
       stream: true
-    })
+    }
+    const body = JSON.stringify(bodyObj)
     return { url, method: 'POST', headers, body }
   },
-  parseDelta(line) {
+  parseDelta(line): ParsedDelta | null {
     if (line.startsWith('data:')) {
       const payload = line.slice(5).trim()
       if (!payload) return { delta: '' }
@@ -107,7 +111,13 @@ export const anthropicAdapter: ProviderAdapter = {
         // 事件结束或内容块结束返回空
         if (json?.type === 'message_stop') return null
         if (json?.type === 'content_block_delta') {
-          return { delta: json?.delta?.text ?? '' }
+          const d = json?.delta
+          // thinking delta: { type: 'thinking_delta', thinking: '...' }
+          if (d?.type === 'thinking_delta') {
+            return { delta: '', thinking: d.thinking ?? '' }
+          }
+          // text delta: { type: 'text_delta', text: '...' }
+          return { delta: d?.text ?? '' }
         }
         return { delta: '' }
       } catch {

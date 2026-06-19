@@ -12,15 +12,22 @@ export interface AdapterRequest {
   body: string
 }
 
+/** parseDelta 解析结果：包含正文增量和可选的思考过程增量。 */
+export interface ParsedDelta {
+  delta: string
+  /** 模型思考/推理过程增量（DeepSeek reasoning_content、Anthropic thinking 等） */
+  thinking?: string
+}
+
 /** 模板适配器接口：新增供应商只需实现 buildRequest / parseDelta。 */
 export interface ProviderAdapter {
   /** 构造 HTTP 请求（含流式标记） */
   buildRequest(config: AiProviderConfig, messages: ChatMessage[]): AdapterRequest
   /**
-   * 解析 SSE data 行，返回内容增量数组（一条 SSE 可能拆为多段文本）。
+   * 解析 SSE data 行，返回内容增量（一条 SSE 可能拆为多段文本）。
    * 返回 null 表示该行代表结束信号。
    */
-  parseDelta(line: string): { delta: string } | null
+  parseDelta(line: string): ParsedDelta | null
 }
 
 /**

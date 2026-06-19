@@ -365,6 +365,103 @@
   40% { opacity: 1; }
 }
 
+/* ─── 思考过程区块 ─── */
+.thinkingSection {
+  margin-bottom: var(--spacing-sm);
+  border-bottom: 1px dashed var(--border-color);
+  padding-bottom: var(--spacing-sm);
+}
+
+.thinkingToggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
+  width: 100%;
+  text-align: left;
+}
+
+.thinkingToggle:hover {
+  color: var(--text-secondary);
+}
+
+.thinkingArrow {
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.thinkingArrowOpen {
+  transform: rotate(90deg);
+}
+
+.thinkingLabel {
+  font-weight: 500;
+}
+
+.thinkingPulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  animation: pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.thinkingContent {
+  margin-top: var(--spacing-xs);
+  padding-left: 15px;
+  border-left: 2px solid var(--border-color);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.thinkingText {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.thinkingText :global(.md-p) {
+  margin: 0 0 4px;
+}
+
+.thinkingText :global(.md-p:last-child) {
+  margin-bottom: 0;
+}
+
+.thinkingText :global(.md-code) {
+  padding: 1px 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  font-family: 'Cascadia Code', Consolas, Monaco, monospace;
+  font-size: 10px;
+}
+
+.thinkingText :global(.md-pre) {
+  margin: 4px 0;
+  padding: 6px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.thinkingText :global(.md-pre code) {
+  padding: 0;
+  background: transparent;
+  font-size: 10px;
+}
+
 /* ─── 输入区 ─── */
 .inputArea {
   border-top: 1px solid var(--border-color);
@@ -379,7 +476,7 @@
 .textarea {
   width: 100%;
   resize: none;
-  padding: var(--spacing-sm) 36px var(--spacing-sm) var(--spacing-sm);
+  padding: var(--spacing-sm) 36px 30px var(--spacing-sm);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--bg-surface);

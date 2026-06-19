@@ -357,10 +357,16 @@ export class SqliteRepository implements DataRepository {
         session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        thinking TEXT DEFAULT '',
         created_at TEXT NOT NULL,
         error INTEGER DEFAULT 0
       )
     `)
+    // 为已有表添加 thinking 列（向后兼容迁移）
+    const cols = this.db.exec("PRAGMA table_info(chat_messages)")[0]?.values?.map((v: any) => v[1]) || []
+    if (cols.length > 0 && !cols.includes('thinking')) {
+      this.db.run("ALTER TABLE chat_messages ADD COLUMN thinking TEXT DEFAULT ''")
+    }
     // 为按板块查询会话建立索引
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_chat_sessions_block ON chat_sessions(block_code, updated_at DESC)`)
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, created_at ASC)`)
@@ -399,7 +405,7 @@ export class SqliteRepository implements DataRepository {
 
   getChatMessages(sessionId: string): ChatSessionMessage[] {
     const stmt = this.db.prepare(`
-      SELECT id, session_id, role, content, created_at, error
+      SELECT id, session_id, role, content, thinking, created_at, error
       FROM chat_messages
       WHERE session_id = $session_id
       ORDER BY created_at ASC
@@ -413,6 +419,7 @@ export class SqliteRepository implements DataRepository {
         sessionId: r.session_id,
         role: r.role,
         content: r.content,
+        thinkingContent: r.thinking || undefined,
         createdAt: r.created_at,
         error: !!r.error
       })
@@ -441,8 +448,8 @@ export class SqliteRepository implements DataRepository {
     this.db.run('DELETE FROM chat_messages WHERE session_id = $sid', { $sid: session.id })
 
     const stmt = this.db.prepare(`
-      INSERT INTO chat_messages (id, session_id, role, content, created_at, error)
-      VALUES ($id, $session_id, $role, $content, $created_at, $error)
+      INSERT INTO chat_messages (id, session_id, role, content, thinking, created_at, error)
+      VALUES ($id, $session_id, $role, $content, $thinking, $created_at, $error)
     `)
     for (const m of messages) {
       stmt.bind({
@@ -450,6 +457,7 @@ export class SqliteRepository implements DataRepository {
         $session_id: m.sessionId,
         $role: m.role,
         $content: m.content,
+        $thinking: m.thinkingContent || '',
         $created_at: m.createdAt,
         $error: m.error ? 1 : 0
       })
