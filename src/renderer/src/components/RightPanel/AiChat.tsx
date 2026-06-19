@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   AiProviderConfig,
+  AiModelConfig,
+  AiProviderTemplate,
   BlockDailyStats,
   ChatMessage,
   ChatSession,
@@ -16,6 +18,8 @@ interface AiChatProps {
   stats: BlockDailyStats[]
   providers: AiProviderConfig[]
   activeProvider: AiProviderConfig | null
+  activeModelId: string | null
+  onModelChange: (providerId: string, modelId: string) => void
   onOpenConfig: () => void
 }
 
@@ -51,7 +55,50 @@ function genSessionId(): string {
 function deriveTitle(msgs: UiMessage[]): string {
   const first = msgs.find(m => m.role === 'user' && m.content)
   if (!first) return '新对话'
-  return first.content.slice(0, 30) + (first.content.length > 30 ? '…' : '')
+  return first.content.slice(0, 30) + (first.content.length > 30 ? '...' : '')
+}
+
+/** 供应商模板对应的 logo 颜色 */
+const TEMPLATE_COLORS: Record<AiProviderTemplate, string> = {
+  openai: '#10a37f',
+  azure: '#0078d4',
+  anthropic: '#d97706',
+  custom: '#6b7280'
+}
+
+/** 供应商模板对应的 logo 字母 */
+const TEMPLATE_LETTERS: Record<AiProviderTemplate, string> = {
+  openai: 'O',
+  azure: 'A',
+  anthropic: 'C',
+  custom: '?'
+}
+
+/** 简洁彩色圆形 + 首字母 logo */
+function ProviderLogo({ template, size = 14 }: { template: AiProviderTemplate; size?: number }) {
+  const color = TEMPLATE_COLORS[template]
+  const letter = TEMPLATE_LETTERS[template]
+  const r = size / 2 - 1
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill={color} />
+      <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="central"
+        fill="#fff" fontSize={size * 0.55} fontWeight="700" fontFamily="Arial, sans-serif">
+        {letter}
+      </text>
+    </svg>
+  )
+}
+
+/** 获取当前活跃模型的显示信息 */
+function getActiveModelInfo(provider: AiProviderConfig | null, modelId: string | null) {
+  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate }
+  const models = provider.models || []
+  const model = (modelId ? models.find(m => m.id === modelId) : null) || models[0]
+  return {
+    name: model?.name || model?.model || provider.model || '未配置',
+    template: provider.template
+  }
 }
 
 export default function AiChat({
@@ -60,6 +107,8 @@ export default function AiChat({
   stats,
   providers,
   activeProvider,
+  activeModelId,
+  onModelChange,
   onOpenConfig
 }: AiChatProps) {
   const [messages, setMessages] = useState<UiMessage[]>([])
@@ -68,10 +117,13 @@ export default function AiChat({
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [sessions, setSessions] = useState<ChatSession[]>([])
-  /** 思考区块展开状态：messageId → boolean，默认流式中展开、完成后折叠 */
+  /** 思考区块展开状态：messageId -> boolean，默认流式中展开、完成后折叠 */
   const [thinkingExpanded, setThinkingExpanded] = useState<Record<string, boolean>>({})
   /** 记录用户是否手动折叠过思考区块（流式期间），防止后续 chunk 重新展开 */
   const userCollapsedRef = useRef<Set<string>>(new Set())
+  /** 模型选择器下拉菜单 */
+  const [modelPickerOpen, setModelPickerOpen] = useState(false)
+  const modelPickerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const latestAssistantRef = useRef<HTMLDivElement>(null)
@@ -168,7 +220,7 @@ export default function AiChat({
     const prevMessages = messagesRef.current
     const prevSessionId = currentSessionId
 
-    // 非首次挂载且有消息 → 保存上一个板块的会话
+    // 非首次挂载且有消息 -> 保存上一个板块的会话
     if (!isInitialMount.current && prevMessages.length > 0 && prevMessages.some(m => m.role !== 'system') && prevSessionId) {
       const toSave = prevMessages.filter(m => !m.streaming && m.content && m.role !== 'system')
       if (toSave.length > 0) {
@@ -229,14 +281,13 @@ export default function AiChat({
     const container = messagesContainerRef.current
     const msgEl = latestAssistantRef.current
     if (!container || !msgEl) return
-    // 将消息顶部定位在可视区域顶部上方 36px 处，保留头像和区块开头可见
     const targetScroll = Math.max(0, msgEl.offsetTop - 36)
     if (container.scrollTop < targetScroll) {
       container.scrollTop = targetScroll
     }
   }, [messages])
 
-  // 思考区块内部自动滚动到底部（不影响外层消息区滚动）
+  // 思考区块内部自动滚动到底部
   useEffect(() => {
     const el = thinkingScrollRef.current
     if (el) {
@@ -272,7 +323,6 @@ export default function AiChat({
           } else if (thinking) {
             last.thinkingContent = (last.thinkingContent || '') + thinking
             last.thinkingStreaming = true
-            // 仅在用户未手动折叠时展开思考区块
             if (!userCollapsedRef.current.has(last.id)) {
               setThinkingExpanded(prev => ({ ...prev, [last.id]: true }))
             }
@@ -282,7 +332,6 @@ export default function AiChat({
             last.streaming = false
             last.thinkingStreaming = false
             userCollapsedRef.current.delete(last.id)
-            // 流式完成后折叠思考区块
             if (last.thinkingContent) {
               setThinkingExpanded(prev => ({ ...prev, [last.id]: false }))
             }
@@ -296,6 +345,18 @@ export default function AiChat({
     return unsub
   }, [pendingRequestId])
 
+  // 点击外部关闭模型选择器
+  useEffect(() => {
+    if (!modelPickerOpen) return
+    function handleClick(e: MouseEvent) {
+      if (modelPickerRef.current && !modelPickerRef.current.contains(e.target as Node)) {
+        setModelPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [modelPickerOpen])
+
   const send = useCallback(
     async (text: string) => {
       const content = text.trim()
@@ -305,7 +366,6 @@ export default function AiChat({
         return
       }
 
-      // 如果没有当前会话，创建一个
       if (!currentSessionId) {
         setCurrentSessionId(genSessionId())
       }
@@ -326,6 +386,7 @@ export default function AiChat({
       try {
         await window.electronAPI.aiChat({
           providerId: activeProvider!.id,
+          activeModelId: activeModelId || undefined,
           messages: recent,
           context
         })
@@ -343,7 +404,7 @@ export default function AiChat({
         })
       }
     },
-    [pendingRequestId, hasProvider, messages, blockName, blockCode, stats, activeProvider, onOpenConfig, currentSessionId]
+    [pendingRequestId, hasProvider, messages, blockName, blockCode, stats, activeProvider, activeModelId, onOpenConfig, currentSessionId]
   )
 
   function handleStop() {
@@ -358,7 +419,6 @@ export default function AiChat({
           last.thinkingStreaming = false
           userCollapsedRef.current.delete(last.id)
           if (!last.content) last.content = '（已停止）'
-          // 停止后折叠思考区块
           if (last.thinkingContent) {
             setThinkingExpanded(prev => ({ ...prev, [last.id]: false }))
           }
@@ -369,7 +429,6 @@ export default function AiChat({
   }
 
   function handleClear() {
-    // 清空当前对话，下次发送时创建新会话
     setMessages([])
     setCurrentSessionId(null)
     setThinkingExpanded({})
@@ -411,9 +470,23 @@ export default function AiChat({
       setMessages([])
       setCurrentSessionId(null)
     }
-    // 刷新列表
     const list = await window.electronAPI.aiListSessions(blockCode)
     setSessions(list)
+  }
+
+  // ─── 模型选择器数据 ───
+
+  const modelInfo = getActiveModelInfo(activeProvider, activeModelId)
+
+  /** 获取所有可用模型，按供应商分组 */
+  const modelGroups = providers.map(p => ({
+    provider: p,
+    models: (p.models || []).filter(m => m.model)
+  })).filter(g => g.models.length > 0)
+
+  function handlePickModel(providerId: string, modelId: string) {
+    onModelChange(providerId, modelId)
+    setModelPickerOpen(false)
   }
 
   return (
@@ -459,22 +532,6 @@ export default function AiChat({
         </div>
       </div>
 
-      {/* 模型选择 */}
-      <div className={styles.modelBar}>
-        <span className={styles.modelLabel}>模型：</span>
-        <select
-          className={styles.modelSelect}
-          value={activeProvider?.id || ''}
-          onChange={() => onOpenConfig()}
-          disabled={providers.length === 0}
-        >
-          {providers.length === 0 && <option value="">未配置</option>}
-          {providers.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
-
       {/* 对话区 / 历史列表 */}
       <div className={styles.messages} ref={messagesContainerRef}>
         {historyOpen ? (
@@ -508,7 +565,6 @@ export default function AiChat({
           </div>
         ) : (
           (() => {
-            // 找到最后一条 assistant 消息的 id，用于 ref 绑定
             const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
             return messages.map(m => (
             <div
@@ -533,7 +589,6 @@ export default function AiChat({
                       onClick={() => {
                         const willCollapse = thinkingExpanded[m.id]
                         setThinkingExpanded(prev => ({ ...prev, [m.id]: !prev[m.id] }))
-                        // 流式期间用户手动折叠，记录到 ref 防止后续 chunk 重新展开
                         if (willCollapse === true && m.thinkingStreaming) {
                           userCollapsedRef.current.add(m.id)
                         }
@@ -612,6 +667,48 @@ export default function AiChat({
             rows={3}
             disabled={!!pendingRequestId}
           />
+          {/* 模型选择器 */}
+          {hasProvider && modelGroups.length > 0 && (
+            <div className={styles.modelSelector} ref={modelPickerRef}>
+              <button
+                className={styles.modelSelectorBtn}
+                onClick={() => setModelPickerOpen(!modelPickerOpen)}
+                title="切换模型"
+              >
+                <ProviderLogo template={modelInfo.template} size={14} />
+                <span className={styles.modelSelectorName}>{modelInfo.name}</span>
+                <svg className={styles.modelSelectorArrow} width="10" height="10" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              {modelPickerOpen && (
+                <div className={styles.modelPicker}>
+                  {modelGroups.map(g => (
+                    <div key={g.provider.id} className={styles.modelGroup}>
+                      <div className={styles.modelGroupHeader}>
+                        <ProviderLogo template={g.provider.template} size={12} />
+                        <span className={styles.modelGroupName}>{g.provider.name}</span>
+                      </div>
+                      {g.models.map((m: AiModelConfig) => {
+                        const isActive = g.provider.id === activeProvider?.id && m.id === activeModelId
+                        return (
+                          <button
+                            key={m.id}
+                            className={`${styles.modelPickItem} ${isActive ? styles.modelPickActive : ''}`}
+                            onClick={() => handlePickModel(g.provider.id, m.id)}
+                          >
+                            <ProviderLogo template={g.provider.template} size={14} />
+                            <span className={styles.modelPickName}>{m.name || m.model}</span>
+                            {isActive && <span className={styles.modelPickCheck}>✓</span>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {pendingRequestId ? (
             <button className={styles.stopBtn} onClick={handleStop} title="停止生成">⏹</button>
           ) : (

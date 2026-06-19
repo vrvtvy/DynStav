@@ -30,7 +30,6 @@
       "resources/icon.ico",
       "resources/icon.png"
     ],
-
     "win": {
       "target": "nsis",
       "icon": "resources/icon.ico"
@@ -43,7 +42,6 @@
   },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.1",
-
     "@types/iconv-lite": "^0.0.1",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

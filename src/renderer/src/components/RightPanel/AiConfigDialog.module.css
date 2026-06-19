@@ -19,9 +19,9 @@
   border: 1px solid var(--border-color);
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  width: 55%;
-  max-width: 780px;
-  max-height: 75vh;
+  width: 70%;
+  max-width: 960px;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
   padding: 24px;
@@ -265,6 +265,206 @@
   color: var(--text-muted);
   margin-top: 4px;
   line-height: 1.4;
+}
+
+/* ─── 区块标题 ─── */
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: var(--spacing-md) 0 var(--spacing-sm);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* ─── 模型列表 ─── */
+.addModelBtn {
+  padding: 2px 10px;
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--transition-speed), border-color var(--transition-speed);
+}
+
+.addModelBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+.modelList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modelItem {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color var(--transition-speed), background var(--transition-speed);
+  overflow: hidden;
+}
+
+.modelItem:hover {
+  border-color: var(--accent-primary);
+}
+
+.modelItemActive {
+  border-color: var(--accent-primary);
+  background: var(--bg-secondary);
+}
+
+.modelItemHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 6px 10px;
+}
+
+.modelItemName {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.modelItemSub {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelDelBtn {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.modelDelBtn:hover:not(:disabled) {
+  background: var(--accent-danger);
+  color: #fff;
+}
+
+.modelDelBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.modelEditForm {
+  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+/* ─── 自定义参数 ─── */
+.paramSection {
+  margin-top: var(--spacing-sm);
+}
+
+.paramHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.addParamBtn {
+  padding: 1px 8px;
+  border: 1px dashed var(--border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--transition-speed);
+}
+
+.addParamBtn:hover {
+  background: var(--bg-hover);
+}
+
+.paramRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.paramKey {
+  flex: 2;
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: 'Cascadia Code', Consolas, Monaco, monospace;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.paramValue {
+  flex: 3;
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: 'Cascadia Code', Consolas, Monaco, monospace;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.paramKey:focus,
+.paramValue:focus {
+  border-color: var(--accent-primary);
+}
+
+.paramDelBtn {
+  padding: 2px 5px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.paramDelBtn:hover {
+  background: var(--accent-danger);
+  color: #fff;
+}
+
+/* ─── 模型级测试 ─── */
+.modelTestRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px dashed var(--border-color);
+}
+
+.modelTestBadge {
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .testRow {

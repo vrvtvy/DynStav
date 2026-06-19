@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   AiProviderConfig,
-  AiProviderTemplate
+  AiProviderTemplate,
+  AiModelConfig
 } from '../../types'
 import styles from './AiConfigDialog.module.css'
 
@@ -58,11 +59,16 @@ const DEFAULT_PROVIDER: Omit<AiProviderConfig, 'id'> = {
   apiKey: '',
   timeoutMs: 15000,
   temperature: 0.3,
-  headers: {}
+  headers: {},
+  models: []
 }
 
 function genId(): string {
   return `prov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function genModelId(): string {
+  return `mdl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
 }
 
 export default function AiConfigDialog({
@@ -77,23 +83,59 @@ export default function AiConfigDialog({
   const [active, setActive] = useState<string | null>(activeId)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [error, setError] = useState('')
+  /** 当前正在编辑的模型 id */
+  const [editingModelId, setEditingModelId] = useState<string | null>(null)
+  /** 每个模型的测试结果：modelId -> result */
+  const [modelTestResults, setModelTestResults] = useState<Record<string, { ok: boolean; message: string }>>({})
+  /** 正在测试的模型 id */
+  const [testingModelId, setTestingModelId] = useState<string | null>(null)
+  /** 模型列表容器引用：添加模型后自动滚动到编辑区 */
+  const modelListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open) {
-      setList(providers)
+      // 向后兼容：为没有 models 数组的旧供应商自动创建一个模型
+      const migrated = providers.map(p => {
+        if (!p.models || p.models.length === 0) {
+          return {
+            ...p,
+            models: [{
+              id: genModelId(),
+              model: p.model || '',
+              name: '',
+              temperature: p.temperature
+            }]
+          }
+        }
+        return p
+      })
+      setList(migrated)
       setActive(activeId)
-      setEditingId(providers[0]?.id ?? null)
-      setTestResult(null)
+      setEditingId(migrated[0]?.id ?? null)
+      setEditingModelId(null)
+      setModelTestResults({})
       setError('')
     }
   }, [open, providers, activeId])
 
+  // 展开/折叠模型编辑区时自动滚动到对应模型
+  useEffect(() => {
+    if (editingModelId && modelListRef.current) {
+      requestAnimationFrame(() => {
+        const el = modelListRef.current?.querySelector(`[data-model-id="${editingModelId}"]`) as HTMLElement | null
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      })
+    }
+  }, [editingModelId])
+
   if (!open) return null
 
   const editing = list.find(p => p.id === editingId) || null
+  const editingModels = editing?.models || []
+  const editingModel = editingModels.find(m => m.id === editingModelId) || null
 
   function update(field: keyof AiProviderConfig, value: any) {
     if (!editing) return
@@ -106,34 +148,141 @@ export default function AiConfigDialog({
     setList(prev =>
       prev.map(p =>
         p.id === editing.id
-          ? { ...p, template: tpl, baseUrl: preset.baseUrl, path: preset.path, model: preset.model }
+          ? { ...p, template: tpl, baseUrl: preset.baseUrl, path: preset.path }
           : p
       )
     )
   }
 
   function handleAdd() {
-    const item: AiProviderConfig = { ...DEFAULT_PROVIDER, id: genId(), name: `供应商 ${list.length + 1}` }
+    const item: AiProviderConfig = { ...DEFAULT_PROVIDER, id: genId(), name: `供应商 ${list.length + 1}`, models: [] }
     setList(prev => [...prev, item])
     setEditingId(item.id)
     setActive(item.id)
-    setTestResult(null)
+    setEditingModelId(null)
   }
 
   function handleDelete(id: string) {
-    setList(prev => prev.filter(p => p.id !== id))
+    const nextList = list.filter(p => p.id !== id)
+    setList(nextList)
     if (active === id) setActive(null)
-    if (editingId === id) setEditingId(null)
+    if (editingId === id) {
+      setEditingId(nextList[0]?.id ?? null)
+      setEditingModelId(null)
+    }
+  }
+
+  // ─── 模型管理 ───
+
+  function handleAddModel() {
+    if (!editing) return
+    const preset = TEMPLATE_PRESETS[editing.template]
+    const newModel: AiModelConfig = {
+      id: genModelId(),
+      model: preset.model || '',
+      name: ''
+    }
+    const models = [...(editing.models || []), newModel]
+    setList(prev => prev.map(p => (p.id === editing.id ? { ...p, models } : p)))
+    setEditingModelId(newModel.id)
+  }
+
+  function handleDeleteModel(modelId: string) {
+    if (!editing) return
+    const models = (editing.models || []).filter(m => m.id !== modelId)
+    setList(prev => prev.map(p => (p.id === editing.id ? { ...p, models } : p)))
+    if (editingModelId === modelId) setEditingModelId(null)
+  }
+
+  function updateModel(modelId: string, field: keyof AiModelConfig, value: any) {
+    if (!editing) return
+    const models = (editing.models || []).map(m =>
+      m.id === modelId ? { ...m, [field]: value } : m
+    )
+    setList(prev => prev.map(p => (p.id === editing.id ? { ...p, models } : p)))
+  }
+
+  // ─── 自定义参数管理 ───
+
+  function addCustomParam(modelId: string) {
+    if (!editing) return
+    const model = editingModels.find(m => m.id === modelId)
+    if (!model) return
+    const params = { ...(model.customParams || {}), '': '' }
+    updateModel(modelId, 'customParams', params)
+  }
+
+  function updateCustomParamKey(modelId: string, oldKey: string, newKey: string) {
+    if (!editing) return
+    const model = editingModels.find(m => m.id === modelId)
+    if (!model) return
+    const oldParams = model.customParams || {}
+    const newParams: Record<string, string> = {}
+    for (const [k, v] of Object.entries(oldParams)) {
+      if (k === oldKey) {
+        newParams[newKey] = v
+      } else {
+        newParams[k] = v
+      }
+    }
+    updateModel(modelId, 'customParams', newParams)
+  }
+
+  function updateCustomParamValue(modelId: string, key: string, value: string) {
+    if (!editing) return
+    const model = editingModels.find(m => m.id === modelId)
+    if (!model) return
+    const params = { ...(model.customParams || {}), [key]: value }
+    updateModel(modelId, 'customParams', params)
+  }
+
+  function removeCustomParam(modelId: string, key: string) {
+    if (!editing) return
+    const model = editingModels.find(m => m.id === modelId)
+    if (!model) return
+    const params = { ...(model.customParams || {}) }
+    delete params[key]
+    updateModel(modelId, 'customParams', params)
+  }
+
+  // ─── 测试连接（每个模型单独测试） ───
+
+  async function handleTestModel(model: AiModelConfig) {
+    if (!editing) return
+    const testProvider: AiProviderConfig = {
+      ...editing,
+      model: model.model,
+      temperature: model.temperature ?? editing.temperature,
+      customParams: model.customParams
+    }
+    setTestingModelId(model.id)
+    setModelTestResults(prev => {
+      const next = { ...prev }
+      delete next[model.id]
+      return next
+    })
+    try {
+      const res = await onTest(testProvider)
+      setModelTestResults(prev => ({ ...prev, [model.id]: res }))
+    } catch (e: any) {
+      setModelTestResults(prev => ({ ...prev, [model.id]: { ok: false, message: e?.message || '测试失败' } }))
+    } finally {
+      setTestingModelId(null)
+    }
   }
 
   async function handleSave() {
     setError('')
-    // 基本校验
     for (const p of list) {
       if (!p.name.trim()) { setError(`供应商「${p.name || '(未命名)'}」名称不能为空`); return }
       if (!p.baseUrl.trim()) { setError(`供应商「${p.name}」的 API 地址不能为空`); return }
-      if (!p.model.trim()) { setError(`供应商「${p.name}」的模型名不能为空`); return }
       if (!p.apiKey.trim()) { setError(`供应商「${p.name}」的 API 密钥不能为空`); return }
+      if (!p.models || p.models.length === 0) {
+        setError(`供应商「${p.name}」至少需要一个模型`); return
+      }
+      for (const m of p.models) {
+        if (!m.model.trim()) { setError(`供应商「${p.name}」中有模型的 API 名称为空`); return }
+      }
     }
     setSaving(true)
     try {
@@ -146,28 +295,14 @@ export default function AiConfigDialog({
     }
   }
 
-  async function handleTest() {
-    if (!editing) return
-    setTesting(true)
-    setTestResult(null)
-    try {
-      const res = await onTest(editing)
-      setTestResult(res)
-    } catch (e: any) {
-      setTestResult({ ok: false, message: e?.message || '测试失败' })
-    } finally {
-      setTesting(false)
-    }
-  }
-
   const preset = editing ? TEMPLATE_PRESETS[editing.template] : null
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.dialog} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
-          <h2 className={styles.title}>⚙️ AI 模型配置</h2>
-          <button className={styles.closeBtn} onClick={onClose} title="关闭">✕</button>
+          <h2 className={styles.title}>AI 模型配置</h2>
+          <button className={styles.closeBtn} onClick={onClose} title="关闭">&#x2715;</button>
         </div>
 
         <div className={styles.body}>
@@ -185,7 +320,7 @@ export default function AiConfigDialog({
                 <div
                   key={p.id}
                   className={`${styles.providerItem} ${editingId === p.id ? styles.providerItemActive : ''}`}
-                  onClick={() => { setEditingId(p.id); setTestResult(null) }}
+                  onClick={() => { setEditingId(p.id); setEditingModelId(null) }}
                 >
                   <span className={styles.providerRadio}>
                     <input
@@ -198,13 +333,15 @@ export default function AiConfigDialog({
                   </span>
                   <div className={styles.providerInfo}>
                     <div className={styles.providerName}>{p.name}</div>
-                    <div className={styles.providerSub}>{TEMPLATE_PRESETS[p.template].label} · {p.model || '-'}</div>
+                    <div className={styles.providerSub}>
+                      {TEMPLATE_PRESETS[p.template].label} · {(p.models || []).length} 个模型
+                    </div>
                   </div>
                   <button
                     className={styles.delBtn}
                     onClick={(e) => { e.stopPropagation(); handleDelete(p.id) }}
                     title="删除"
-                  >🗑</button>
+                  >&#x1f5d1;</button>
                 </div>
               ))}
             </div>
@@ -214,6 +351,9 @@ export default function AiConfigDialog({
           <div className={styles.formArea}>
             {editing ? (
               <>
+                {/* ─── 供应商基本信息 ─── */}
+                <div className={styles.sectionTitle}>供应商信息</div>
+
                 <div className={styles.formGroup}>
                   <label className={styles.label}>名称</label>
                   <input
@@ -224,39 +364,19 @@ export default function AiConfigDialog({
                   />
                 </div>
 
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>接口类型（模板）</label>
-                  <select
-                    className={styles.select}
-                    value={editing.template}
-                    onChange={e => applyTemplate(e.target.value as AiProviderTemplate)}
-                  >
-                    {(Object.keys(TEMPLATE_PRESETS) as AiProviderTemplate[]).map(k => (
-                      <option key={k} value={k}>{TEMPLATE_PRESETS[k].label}</option>
-                    ))}
-                  </select>
-                  {preset && <div className={styles.hint}>{preset.hint}</div>}
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>API 地址（Base URL）</label>
-                  <input
-                    className={styles.input}
-                    value={editing.baseUrl}
-                    onChange={e => update('baseUrl', e.target.value)}
-                    placeholder="https://api.openai.com/v1"
-                  />
-                </div>
-
                 <div className={styles.formRow}>
                   <div className={styles.formGroup}>
-                    <label className={styles.label}>模型名称</label>
-                    <input
-                      className={styles.input}
-                      value={editing.model}
-                      onChange={e => update('model', e.target.value)}
-                      placeholder="gpt-4o-mini"
-                    />
+                    <label className={styles.label}>接口类型（模板）</label>
+                    <select
+                      className={styles.select}
+                      value={editing.template}
+                      onChange={e => applyTemplate(e.target.value as AiProviderTemplate)}
+                    >
+                      {(Object.keys(TEMPLATE_PRESETS) as AiProviderTemplate[]).map(k => (
+                        <option key={k} value={k}>{TEMPLATE_PRESETS[k].label}</option>
+                      ))}
+                    </select>
+                    {preset && <div className={styles.hint}>{preset.hint}</div>}
                   </div>
                   <div className={styles.formGroup}>
                     <label className={styles.label}>请求路径（可选）</label>
@@ -267,6 +387,16 @@ export default function AiConfigDialog({
                       placeholder="/chat/completions"
                     />
                   </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>API 地址（Base URL）</label>
+                  <input
+                    className={styles.input}
+                    value={editing.baseUrl}
+                    onChange={e => update('baseUrl', e.target.value)}
+                    placeholder="https://api.openai.com/v1"
+                  />
                 </div>
 
                 <div className={styles.formGroup}>
@@ -282,44 +412,147 @@ export default function AiConfigDialog({
                   <div className={styles.hint}>密钥经系统级 DPAPI 加密后存储于本地配置目录。</div>
                 </div>
 
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>超时（毫秒）</label>
-                    <input
-                      className={styles.input}
-                      type="number"
-                      min={3000}
-                      step={1000}
-                      value={editing.timeoutMs}
-                      onChange={e => update('timeoutMs', Number(e.target.value) || 15000)}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Temperature
-                      <span className={styles.helpIcon} title="控制 AI 输出的随机性。值越低（如 0.1）回答越确定、保守；值越高（如 1.0）回答越发散、有创意。分析类任务建议使用 0.2~0.4。">?</span>
-                    </label>
-                    <input
-                      className={styles.input}
-                      type="number"
-                      min={0}
-                      max={2}
-                      step={0.1}
-                      value={editing.temperature ?? 0.3}
-                      onChange={e => update('temperature', Number(e.target.value))}
-                    />
-                  </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>默认超时（毫秒）</label>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    min={3000}
+                    step={1000}
+                    value={editing.timeoutMs}
+                    onChange={e => update('timeoutMs', Number(e.target.value) || 15000)}
+                    style={{ width: 150 }}
+                  />
                 </div>
 
-                <div className={styles.testRow}>
-                  <button className={styles.testBtn} onClick={handleTest} disabled={testing}>
-                    {testing ? '⏳ 测试中...' : '🔌 测试连接'}
-                  </button>
-                  {testResult && (
-                    <span className={`${styles.testResult} ${testResult.ok ? styles.testOk : styles.testFail}`}>
-                      {testResult.ok ? '✓ ' : '✗ '}{testResult.message}
-                    </span>
+                {/* ─── 模型列表 ─── */}
+                <div className={styles.sectionTitle}>
+                  模型列表
+                  <button className={styles.addModelBtn} onClick={handleAddModel}>+ 添加模型</button>
+                </div>
+
+                <div className={styles.modelList} ref={modelListRef}>
+                  {editingModels.length === 0 && (
+                    <div className={styles.emptyHint}>暂无模型，点击「添加模型」</div>
                   )}
+                  {editingModels.map(m => {
+                    const testResult = modelTestResults[m.id]
+                    const isTesting = testingModelId === m.id
+                    const paramEntries = m.customParams ? Object.entries(m.customParams) : []
+                    return (
+                      <div
+                        key={m.id}
+                        data-model-id={m.id}
+                        className={`${styles.modelItem} ${editingModelId === m.id ? styles.modelItemActive : ''}`}
+                        onClick={() => setEditingModelId(editingModelId === m.id ? null : m.id)}
+                      >
+                        <div className={styles.modelItemHeader}>
+                          <span className={styles.modelItemName}>{m.name || m.model || '(未命名)'}</span>
+                          <span className={styles.modelItemSub}>{m.model}</span>
+                          {testResult && (
+                            <span className={`${styles.modelTestBadge} ${testResult.ok ? styles.testOk : styles.testFail}`}>
+                              {testResult.ok ? '✓' : '✗'}
+                            </span>
+                          )}
+                          <button
+                            className={styles.modelDelBtn}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteModel(m.id) }}
+                            title="删除模型"
+                            disabled={editingModels.length <= 1}
+                          >&#x2715;</button>
+                        </div>
+                        {editingModelId === m.id && (
+                          <div className={styles.modelEditForm} onClick={e => e.stopPropagation()}>
+                            <div className={styles.formRow}>
+                              <div className={styles.formGroup}>
+                                <label className={styles.label}>显示名称（可选）</label>
+                                <input
+                                  className={styles.input}
+                                  value={m.name || ''}
+                                  onChange={e => updateModel(m.id, 'name', e.target.value)}
+                                  placeholder="留空则使用 API 名称"
+                                />
+                              </div>
+                              <div className={styles.formGroup}>
+                                <label className={styles.label}>API 模型名称</label>
+                                <input
+                                  className={styles.input}
+                                  value={m.model}
+                                  onChange={e => updateModel(m.id, 'model', e.target.value)}
+                                  placeholder="gpt-4o-mini"
+                                />
+                              </div>
+                            </div>
+                            <div className={styles.formGroup}>
+                              <label className={styles.label}>
+                                Temperature
+                                <span className={styles.helpIcon} title="控制 AI 输出的随机性。值越低回答越确定；值越高越发散。留空使用供应商默认值。">?</span>
+                              </label>
+                              <input
+                                className={styles.input}
+                                type="number"
+                                min={0}
+                                max={2}
+                                step={0.1}
+                                value={m.temperature ?? ''}
+                                onChange={e => updateModel(m.id, 'temperature', e.target.value === '' ? undefined : Number(e.target.value))}
+                                placeholder={`默认 ${editing.temperature ?? 0.3}`}
+                                style={{ width: 120 }}
+                              />
+                            </div>
+
+                            {/* ─── 自定义参数 ─── */}
+                            <div className={styles.paramSection}>
+                              <div className={styles.paramHeader}>
+                                <label className={styles.label}>
+                                  自定义参数
+                                  <span className={styles.helpIcon} title="按模型方文档添加额外的请求体参数，如 reasoning_effort、top_p 等。值会自动解析为数字/布尔/JSON。">?</span>
+                                </label>
+                                <button className={styles.addParamBtn} onClick={() => addCustomParam(m.id)}>+ 添加</button>
+                              </div>
+                              {paramEntries.map(([key, val]) => (
+                                <div key={key} className={styles.paramRow}>
+                                  <input
+                                    className={styles.paramKey}
+                                    value={key}
+                                    onChange={e => updateCustomParamKey(m.id, key, e.target.value)}
+                                    placeholder="参数名"
+                                  />
+                                  <input
+                                    className={styles.paramValue}
+                                    value={val}
+                                    onChange={e => updateCustomParamValue(m.id, key, e.target.value)}
+                                    placeholder="参数值"
+                                  />
+                                  <button
+                                    className={styles.paramDelBtn}
+                                    onClick={() => removeCustomParam(m.id, key)}
+                                    title="删除"
+                                  >&#x2715;</button>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* ─── 模型级测试连接 ─── */}
+                            <div className={styles.modelTestRow}>
+                              <button
+                                className={styles.testBtn}
+                                onClick={() => handleTestModel(m)}
+                                disabled={isTesting}
+                              >
+                                {isTesting ? '测试中...' : '测试连接'}
+                              </button>
+                              {testResult && (
+                                <span className={`${styles.testResult} ${testResult.ok ? styles.testOk : styles.testFail}`}>
+                                  {testResult.ok ? '✓ ' : '✗ '}{testResult.message}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </>
             ) : (

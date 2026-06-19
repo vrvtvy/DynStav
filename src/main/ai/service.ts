@@ -2,6 +2,7 @@ import { net } from 'electron'
 import log from 'electron-log/main'
 import {
   AiProviderConfig,
+  AiModelConfig,
   AiChatRequest,
   AiChatChunk,
   ChatMessage
@@ -26,6 +27,28 @@ export function genId(): string {
 }
 
 /**
+ * 从供应商配置中解析当前活跃模型，返回融合了模型级参数的有效 provider。
+ * 优先级：activeModelId 匹配 models 中的项 > models[0] > provider.model（向后兼容）。
+ */
+function resolveActiveModel(provider: AiProviderConfig, activeModelId?: string): AiProviderConfig {
+  const models = provider.models && provider.models.length > 0 ? provider.models : null
+  if (!models) return provider // 向后兼容：无 models 数组时用旧字段
+
+  let model: AiModelConfig | undefined
+  if (activeModelId) {
+    model = models.find(m => m.id === activeModelId)
+  }
+  if (!model) model = models[0] // 找不到指定 id 时回退到第一个
+
+  return {
+    ...provider,
+    model: model.model,
+    temperature: model.temperature ?? provider.temperature,
+    customParams: model.customParams
+  }
+}
+
+/**
  * 用 Electron 的 net 模块发起流式请求，逐 chunk 回调。
  * 选择 net 而非 Node fetch：net 走 Chromium 网络栈，
  * 自动遵循系统代理、证书校验，且支持可靠的中途取消。
@@ -35,14 +58,16 @@ export async function streamChat(
   requestId: string,
   onChunk: (chunk: AiChatChunk) => void
 ): Promise<void> {
-  log.debug('[AI] streamChat 开始, requestId=%s, providerId=%s, 入参消息数=%d', requestId, request.providerId, request.messages?.length ?? 0)
-  const provider = await findProvider(request.providerId)
-  if (!provider) {
+  log.debug('[AI] streamChat 开始, requestId=%s, providerId=%s, modelId=%s, 入参消息数=%d',
+    requestId, request.providerId, request.activeModelId || '(默认)', request.messages?.length ?? 0)
+  const rawProvider = await findProvider(request.providerId)
+  if (!rawProvider) {
     log.warn('[AI] 找不到 provider: %s', request.providerId)
     onChunk({ delta: '', done: true, error: '未找到该 AI 配置，请先在设置中添加。' })
     return
   }
 
+  const provider = resolveActiveModel(rawProvider, request.activeModelId)
   const adapter: ProviderAdapter = getAdapter(provider)
   const messages: ChatMessage[] = injectContext(request.messages, request.context)
   const spec = adapter.buildRequest(provider, messages)

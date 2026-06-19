@@ -76,6 +76,24 @@ export interface AppConfig {
   aiProviders?: AiProviderConfig[]
   /** 最近使用的 AI 供应商 id */
   activeAiProviderId?: string | null
+  /** 最近使用的 AI 模型 id */
+  activeAiModelId?: string | null
+}
+
+/**
+ * 单个模型配置。一个供应商可挂多个模型，每个模型可独立设置温度等参数。
+ */
+export interface AiModelConfig {
+  /** 唯一 id（同一供应商内唯一） */
+  id: string
+  /** API 请求中的 model 字段值，如 gpt-4o-mini */
+  model: string
+  /** 显示名称，留空则使用 model 值 */
+  name?: string
+  /** 推理温度，留空则使用供应商默认值 */
+  temperature?: number
+  /** 自定义请求参数（键值对），会合并到 API 请求体中，用于开启模型方特定功能 */
+  customParams?: Record<string, string>
 }
 
 /**
@@ -91,7 +109,7 @@ export interface AiProviderConfig {
   template: AiProviderTemplate
   /** API 基础地址，如 https://api.openai.com/v1 */
   baseUrl: string
-  /** 模型名称，如 gpt-4o-mini */
+  /** 模型名称（向后兼容，仅当 models 为空时使用） */
   model: string
   /** API 密钥（主进程侧加密后落盘，渲染层拿到的为明文） */
   apiKey: string
@@ -101,8 +119,12 @@ export interface AiProviderConfig {
   path?: string
   /** 自定义请求头（键值对，可选） */
   headers?: Record<string, string>
-  /** 推理温度，默认 0.3 */
+  /** 推理温度，默认 0.3（供应商级默认值，模型级可覆盖） */
   temperature?: number
+  /** 该供应商下的模型列表 */
+  models?: AiModelConfig[]
+  /** 自定义请求参数（由模型级 customParams 合并而来，运行时注入） */
+  customParams?: Record<string, string>
 }
 
 /** AI 适配模板类型 */
@@ -141,6 +163,8 @@ export interface BlockContext {
 /** AI 聊天请求 */
 export interface AiChatRequest {
   providerId: string
+  /** 当前选中的模型 id（对应 AiModelConfig.id），不传则使用供应商首个模型 */
+  activeModelId?: string
   messages: ChatMessage[]
   /** 板块上下文，会以 system 消息注入 */
   context?: BlockContext

@@ -37,7 +37,7 @@
 }
 
 .contextMeta {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   flex-shrink: 0;
   margin-left: var(--spacing-xs);
@@ -72,34 +72,6 @@
 .toolBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-/* ─── 模型栏 ─── */
-.modelBar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-xs) var(--spacing-md);
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.modelLabel {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.modelSelect {
-  flex: 1;
-  padding: 3px 6px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  outline: none;
-  cursor: pointer;
-  min-width: 0;
 }
 
 /* ─── 对话区 ─── */
@@ -476,7 +448,7 @@
 .textarea {
   width: 100%;
   resize: none;
-  padding: var(--spacing-sm) 36px 30px var(--spacing-sm);
+  padding: var(--spacing-sm) 36px 28px var(--spacing-sm);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--bg-surface);
@@ -547,4 +519,134 @@
 
 .stopBtn:hover {
   background: var(--bg-hover);
+}
+
+/* ─── 模型选择器 ─── */
+.modelSelector {
+  position: absolute;
+  left: 6px;
+  bottom: 10px;
+  z-index: 10;
+}
+
+.modelSelectorBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  max-width: 160px;
+  transition: background var(--transition-speed), border-color var(--transition-speed);
+}
+
+.modelSelectorBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.modelSelectorName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+}
+
+.modelSelectorArrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* 模型选择下拉面板 */
+.modelPicker {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 4px;
+  z-index: 100;
+  animation: pickerIn 0.12s ease;
+}
+
+@keyframes pickerIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modelGroup {
+  padding: 2px 0;
+}
+
+.modelGroup + .modelGroup {
+  border-top: 1px solid var(--border-color);
+  margin-top: 2px;
+  padding-top: 4px;
+}
+
+.modelGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.modelGroupName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelPickItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  transition: background var(--transition-speed);
+}
+
+.modelPickItem:hover {
+  background: var(--bg-hover);
+}
+
+.modelPickActive {
+  background: var(--bg-secondary);
+}
+
+.modelPickName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelPickCheck {
+  color: var(--accent-primary);
+  font-size: 12px;
+  flex-shrink: 0;
 }

@@ -92,12 +92,14 @@ export default function App() {
     localStorage.setItem('appFontSize', fontSize)
   }, [fontSize])
 
-  // 右侧面板宽度：持久化到配置文件与 localStorage
+  // 右侧面板宽度：持久化到配置文件与 localStorage（折叠时 width 为 0 不持久化）
   useEffect(() => {
-    localStorage.setItem('rightPanelWidth', String(rightPanelWidth))
-    window.electronAPI.getConfig().then(config => {
-      window.electronAPI.saveConfig({ ...config, rightPanelWidth })
-    })
+    if (rightPanelWidth > 0) {
+      localStorage.setItem('rightPanelWidth', String(rightPanelWidth))
+      window.electronAPI.getConfig().then(config => {
+        window.electronAPI.saveConfig({ ...config, rightPanelWidth })
+      })
+    }
   }, [rightPanelWidth])
 
   const cycleFontSize = useCallback(() => {

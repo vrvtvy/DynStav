@@ -5,6 +5,20 @@ function trimBase(url: string): string {
   return (url || '').replace(/\/+$/, '')
 }
 
+/** 尝试把字符串值解析为合适的 JS 类型：数字、布尔、JSON 对象，否则保持字符串。 */
+function tryParseValue(v: string): any {
+  if (v === 'true') return true
+  if (v === 'false') return false
+  if (v === 'null') return null
+  const n = Number(v)
+  if (!isNaN(n) && v.trim() !== '') return n
+  // 尝试 JSON 解析（对象/数组）
+  if ((v.startsWith('{') && v.endsWith('}')) || (v.startsWith('[') && v.endsWith(']'))) {
+    try { return JSON.parse(v) } catch { /* 保持字符串 */ }
+  }
+  return v
+}
+
 /**
  * OpenAI ChatCompletions 模板（同时兼容任何遵循 OpenAI 协议的第三方网关，
  * 如 deepseek、moonshot、本地 vLLM / Ollama 的 OpenAI 兼容端点）。
@@ -18,12 +32,19 @@ export const openaiAdapter: ProviderAdapter = {
       Authorization: `Bearer ${config.apiKey}`
     }
     if (config.headers) Object.assign(headers, config.headers)
-    const body = JSON.stringify({
+    const bodyObj: Record<string, any> = {
       model: config.model,
       messages,
       temperature: config.temperature ?? 0.3,
       stream: true
-    })
+    }
+    // 合并模型自定义参数
+    if (config.customParams) {
+      for (const [k, v] of Object.entries(config.customParams)) {
+        if (k && v !== undefined) bodyObj[k] = tryParseValue(v)
+      }
+    }
+    const body = JSON.stringify(bodyObj)
     return { url, method: 'POST', headers, body }
   },
   parseDelta(line): ParsedDelta | null {
@@ -98,6 +119,12 @@ export const anthropicAdapter: ProviderAdapter = {
       temperature: config.temperature ?? 0.3,
       max_tokens: 4096,
       stream: true
+    }
+    // 合并模型自定义参数
+    if (config.customParams) {
+      for (const [k, v] of Object.entries(config.customParams)) {
+        if (k && v !== undefined) bodyObj[k] = tryParseValue(v)
+      }
     }
     const body = JSON.stringify(bodyObj)
     return { url, method: 'POST', headers, body }
