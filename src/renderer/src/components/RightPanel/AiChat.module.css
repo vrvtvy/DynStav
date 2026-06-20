@@ -78,7 +78,7 @@
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-md);
+  padding: 20px var(--spacing-md) var(--spacing-md);
 }
 
 .welcome {
@@ -533,14 +533,14 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-surface);
   color: var(--text-secondary);
   cursor: pointer;
   font-size: var(--font-size-sm);
-  line-height: 1;
+  line-height: 1.4;
   max-width: 160px;
   transition: background var(--transition-speed), border-color var(--transition-speed);
 }

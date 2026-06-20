@@ -282,7 +282,7 @@ export default function AiChat({
     const container = messagesContainerRef.current
     const msgEl = latestAssistantRef.current
     if (!container || !msgEl) return
-    const targetScroll = Math.max(0, msgEl.offsetTop - 36)
+    const targetScroll = Math.max(0, msgEl.offsetTop - 45)
     if (container.scrollTop < targetScroll) {
       container.scrollTop = targetScroll
     }
