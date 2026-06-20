@@ -14,6 +14,8 @@ export interface PresetProviderDef {
   path: string
   /** 1-2 字母缩写，用于 Logo 显示 */
   logo: string
+  /** @lobehub/icons 的 provider key，用于显示官方品牌图标 */
+  iconKey?: string
   /** 是否支持 /models 端点获取模型列表（Anthropic 等不支持） */
   supportsFetchModels?: boolean
 }
@@ -32,6 +34,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.deepseek.com/v1',
     path: '/chat/completions',
     logo: 'DS',
+    iconKey: 'deepseek',
     supportsFetchModels: true,
   },
   {
@@ -41,6 +44,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.moonshot.cn/v1',
     path: '/chat/completions',
     logo: 'MK',
+    iconKey: 'moonshot',
     supportsFetchModels: true,
   },
   {
@@ -50,6 +54,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     path: '/chat/completions',
     logo: 'QW',
+    iconKey: 'qwen',
     supportsFetchModels: true,
   },
   {
@@ -59,6 +64,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     path: '/chat/completions',
     logo: 'GL',
+    iconKey: 'zhipu',
     supportsFetchModels: true,
   },
   {
@@ -68,6 +74,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     path: '/chat/completions',
     logo: 'DB',
+    iconKey: 'volcengine',
     supportsFetchModels: true,
   },
   {
@@ -77,6 +84,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.minimaxi.com/v1',
     path: '/chat/completions',
     logo: 'MM',
+    iconKey: 'minimax',
     supportsFetchModels: true,
   },
   {
@@ -86,6 +94,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.xiaomimimo.com/v1',
     path: '/chat/completions',
     logo: 'XM',
+    iconKey: 'xiaomimimo',
     supportsFetchModels: true,
   },
   {
@@ -95,6 +104,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.siliconflow.cn/v1',
     path: '/chat/completions',
     logo: 'SF',
+    iconKey: 'siliconcloud',
     supportsFetchModels: true,
   },
 
@@ -106,6 +116,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.openai.com/v1',
     path: '/chat/completions',
     logo: 'O',
+    iconKey: 'openai',
     supportsFetchModels: true,
   },
   {
@@ -115,6 +126,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.anthropic.com',
     path: '/v1/messages',
     logo: 'C',
+    iconKey: 'anthropic',
     supportsFetchModels: false,
   },
   {
@@ -124,6 +136,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     path: '/chat/completions',
     logo: 'G',
+    iconKey: 'google',
     supportsFetchModels: true,
   },
   {
@@ -133,6 +146,7 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://api.groq.com/openai/v1',
     path: '/chat/completions',
     logo: 'GQ',
+    iconKey: 'groq',
     supportsFetchModels: true,
   },
   {
@@ -142,58 +156,75 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     baseUrl: 'https://openrouter.ai/api/v1',
     path: '/chat/completions',
     logo: 'OR',
+    iconKey: 'openrouter',
     supportsFetchModels: true,
   },
 ]
 
 /**
  * 将预设提供商合并到已有列表中。
- * - 按 baseUrl 匹配：已存在的打标记，不存在的注入新条目。
- * - 幂等：多次调用结果一致，不会重复注入。
- * - 不覆盖用户已有的 apiKey、自定义模型等配置。
- * - 预设不预填充模型，由用户填写 Key 后通过 API 获取。
+ * - 按 presetId 匹配，不修改用户自定义的供应商
+ * - 幂等：多次调用结果一致，不会重复注入
+ * - 不覆盖用户已有的 apiKey、自定义模型等配置
+ * - 预设不预填充模型，由用户填写 Key 后通过 API 获取
  */
 export function mergePresets(
   existing: import('../../renderer/src/types').AiProviderConfig[]
 ): import('../../renderer/src/types').AiProviderConfig[] {
-  const result = [...existing]
+  const result = existing.map(p => ({ ...p }))
   const normalizeUrl = (url: string) => url.trim().toLowerCase().replace(/\/+$/, '')
 
-  // 构建已有 baseUrl 索引
-  const baseUrlIndex = new Map<string, number>()
-  result.forEach((p, i) => {
-    baseUrlIndex.set(normalizeUrl(p.baseUrl), i)
-  })
+  // ─── 迁移：为旧版预设供应商补充 presetId ───
+  // 旧版本通过 baseUrl 匹配并打上 isPreset 标记，这里补充 presetId 以便后续稳定匹配
+  for (const p of result) {
+    if (p.isPreset && !p.presetId) {
+      const matched = PRESET_PROVIDERS.find(
+        pr => normalizeUrl(pr.baseUrl) === normalizeUrl(p.baseUrl)
+      )
+      if (matched) {
+        p.presetId = matched.presetId
+      }
+    }
+  }
 
+  // ─── 收集已有 presetId ───
+  const existingPresetIds = new Set<string>()
+  for (const p of result) {
+    if (p.presetId) {
+      existingPresetIds.add(p.presetId)
+    }
+  }
+
+  // ─── 注入缺失的预设供应商 ───
   for (const preset of PRESET_PROVIDERS) {
-    const normalizedPresetUrl = normalizeUrl(preset.baseUrl)
-    const existingIdx = baseUrlIndex.get(normalizedPresetUrl)
-
-    if (existingIdx !== undefined) {
-      // 匹配到已有 provider：打上预设标记，保留用户配置
-      const existing = result[existingIdx]
+    if (existingPresetIds.has(preset.presetId)) {
+      // 已存在：仅更新预设元数据（logo、icon 等），保留用户配置的名称、baseUrl、模型等
+      const existing = result.find(p => p.presetId === preset.presetId)!
       existing.isPreset = true
       existing.presetLogo = preset.logo
-    } else {
-      // 未匹配：注入新预设（apiKey 为空，models 为空）
-      const newProvider: import('../../renderer/src/types').AiProviderConfig = {
-        id: `preset_${preset.presetId}_${Date.now().toString(36)}`,
-        name: preset.name,
-        template: preset.template,
-        baseUrl: preset.baseUrl,
-        path: preset.path,
-        model: '',
-        apiKey: '',
-        timeoutMs: 30000,
-        temperature: 0.3,
-        models: [],
-        isPreset: true,
-        presetLogo: preset.logo,
-      }
-
-      baseUrlIndex.set(normalizedPresetUrl, result.length)
-      result.push(newProvider)
+      existing.presetIconKey = preset.iconKey
+      continue
     }
+
+    // 不存在：注入新预设（apiKey 为空，models 为空）
+    const newProvider: import('../../renderer/src/types').AiProviderConfig = {
+      id: `preset_${preset.presetId}_${Date.now().toString(36)}`,
+      name: preset.name,
+      template: preset.template,
+      baseUrl: preset.baseUrl,
+      path: preset.path,
+      model: '',
+      apiKey: '',
+      timeoutMs: 30000,
+      temperature: 0.3,
+      models: [],
+      isPreset: true,
+      presetId: preset.presetId,
+      presetLogo: preset.logo,
+      presetIconKey: preset.iconKey,
+    }
+
+    result.push(newProvider)
   }
 
   return result

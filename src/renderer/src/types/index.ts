@@ -125,10 +125,14 @@ export interface AiProviderConfig {
   models?: AiModelConfig[]
   /** 自定义请求参数（由模型级 customParams 合并而来，运行时注入） */
   customParams?: Record<string, string>
-  /** 预设标记：true 表示系统预设提供商，不可删除 */
+  /** 预设标记：true 表示系统预设提供商 */
   isPreset?: boolean
+  /** 预设唯一标识，如 "deepseek"、"openai"，用于匹配预设定义（仅预设供应商有值） */
+  presetId?: string
   /** 预设 Logo 缩写（1-2 字母），如 "DS"、"MK" */
   presetLogo?: string
+  /** 预设图标 key，如 "deepseek"、"zhipu" */
+  presetIconKey?: string
 }
 
 /** AI 适配模板类型 */

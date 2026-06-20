@@ -51,6 +51,16 @@ export default function RightPanel({ blockName, blockCode, stats }: RightPanelPr
   const activeProvider =
     providers.find(p => p.id === activeId) || providers[0] || null
 
+  function findFirstAvailableModel(providers: AiProviderConfig[]): { providerId: string; modelId: string } | null {
+    for (const p of providers) {
+      const validModels = (p.models || []).filter(m => m.model)
+      if (validModels.length > 0) {
+        return { providerId: p.id, modelId: validModels[0].id }
+      }
+    }
+    return null
+  }
+
   const handleSave = useCallback(
     async (next: AiProviderConfig[], nextActiveId: string | null) => {
       const res = await window.electronAPI.aiSaveProviders({
@@ -58,14 +68,28 @@ export default function RightPanel({ blockName, blockCode, stats }: RightPanelPr
         activeId: nextActiveId
       })
       setProviders(res.providers)
-      setActiveId(res.activeId)
-      // 保存后校验当前 model 是否还有效
-      const provider = res.providers.find(p => p.id === res.activeId)
-      if (provider && provider.models && provider.models.length > 0) {
-        if (!activeModelId || !provider.models.some(m => m.id === activeModelId)) {
-          const newModelId = provider.models[0].id
-          setActiveModelId(newModelId)
-          localStorage.setItem(LS_MODEL_KEY, newModelId)
+
+      const activeProvider = res.providers.find(p => p.id === res.activeId)
+      const activeModels = activeProvider?.models || []
+      const currentModelValid = activeModelId && activeModels.some(m => m.id === activeModelId)
+
+      if (activeProvider && activeModels.length > 0 && currentModelValid) {
+        setActiveId(res.activeId)
+      } else {
+        const firstAvailable = findFirstAvailableModel(res.providers)
+        if (firstAvailable) {
+          setActiveId(firstAvailable.providerId)
+          setActiveModelId(firstAvailable.modelId)
+          localStorage.setItem(LS_PROVIDER_KEY, firstAvailable.providerId)
+          localStorage.setItem(LS_MODEL_KEY, firstAvailable.modelId)
+          window.electronAPI.aiSaveProviders({
+            providers: res.providers,
+            activeId: firstAvailable.providerId
+          })
+        } else {
+          setActiveId(res.activeId)
+          setActiveModelId(null)
+          localStorage.removeItem(LS_MODEL_KEY)
         }
       }
     },

@@ -11,6 +11,8 @@ import {
 import { buildBlockContext, renderMarkdown } from './context'
 import ChatHistoryList from './ChatHistoryList'
 import styles from './AiChat.module.css'
+import { ProviderLogoIcon, providerIcons } from '../icons/providerIcons'
+import yinYangIcon from '../../../../../resources/yin-yang.png'
 
 interface AiChatProps {
   blockName: string
@@ -58,7 +60,7 @@ function deriveTitle(msgs: UiMessage[]): string {
   return first.content.slice(0, 30) + (first.content.length > 30 ? '...' : '')
 }
 
-/** 供应商模板对应的 logo 颜色 */
+/** 供应商模板对应的 logo 颜色（fallback 用） */
 const TEMPLATE_COLORS: Record<AiProviderTemplate, string> = {
   openai: '#10a37f',
   azure: '#0078d4',
@@ -66,7 +68,7 @@ const TEMPLATE_COLORS: Record<AiProviderTemplate, string> = {
   custom: '#6b7280'
 }
 
-/** 供应商模板对应的 logo 字母 */
+/** 供应商模板对应的 logo 字母（fallback 用） */
 const TEMPLATE_LETTERS: Record<AiProviderTemplate, string> = {
   openai: 'O',
   azure: 'A',
@@ -74,31 +76,50 @@ const TEMPLATE_LETTERS: Record<AiProviderTemplate, string> = {
   custom: '?'
 }
 
-/** 简洁彩色圆形 + 首字母 logo */
-function ProviderLogo({ template, size = 14, presetLogo }: { template: AiProviderTemplate; size?: number; presetLogo?: string }) {
-  const color = TEMPLATE_COLORS[template]
-  const letter = presetLogo || TEMPLATE_LETTERS[template]
-  const r = size / 2 - 1
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill={color} />
-      <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="central"
-        fill="#fff" fontSize={presetLogo && presetLogo.length > 1 ? size * 0.4 : size * 0.55} fontWeight="700" fontFamily="Arial, sans-serif">
-        {letter}
-      </text>
-    </svg>
-  )
+/** 模型供应商 Logo 组件：预设用品牌图标，非预设（用户自定义）用阴阳图 */
+function ProviderLogo({
+  template,
+  size = 14,
+  presetLogo,
+  presetIconKey,
+}: {
+  template: AiProviderTemplate
+  size?: number
+  presetLogo?: string
+  presetIconKey?: string
+}) {
+  if (presetIconKey && providerIcons[presetIconKey]) {
+    return <ProviderLogoIcon iconKey={presetIconKey} size={size} />
+  }
+
+  if (presetIconKey) {
+    const color = TEMPLATE_COLORS[template]
+    const letter = presetLogo || TEMPLATE_LETTERS[template]
+    const r = size / 2 - 1
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill={color} />
+        <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="central"
+          fill="#fff" fontSize={presetLogo && presetLogo.length > 1 ? size * 0.4 : size * 0.55} fontWeight="700" fontFamily="Arial, sans-serif">
+          {letter}
+        </text>
+      </svg>
+    )
+  }
+
+  return <img src={yinYangIcon} width={size} height={size} style={{ flexShrink: 0, display: 'block' }} />
 }
 
 /** 获取当前活跃模型的显示信息 */
 function getActiveModelInfo(provider: AiProviderConfig | null, modelId: string | null) {
-  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate, presetLogo: undefined }
+  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate, presetLogo: undefined, presetIconKey: undefined }
   const models = provider.models || []
   const model = (modelId ? models.find(m => m.id === modelId) : null) || models[0]
   return {
     name: model?.name || model?.model || provider.model || '未配置',
     template: provider.template,
-    presetLogo: provider.presetLogo
+    presetLogo: provider.presetLogo,
+    presetIconKey: provider.presetIconKey,
   }
 }
 
@@ -508,28 +529,28 @@ export default function AiChat({
         <div className={styles.toolbar}>
           <button className={styles.toolBtn} onClick={handleClear} disabled={!!pendingRequestId} title="新建对话">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
             </svg>
           </button>
           <button className={styles.toolBtn} onClick={handleOpenHistory} title="历史对话">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 12a9 9 0 1 0 2.636-6.364" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M3 4v4.5h4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 12a9 9 0 1 0 2.636-6.364" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <path d="M3 4v4.5h4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 8v4l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <button className={styles.toolBtn} onClick={handleReanalyze} disabled={!hasProvider || !!pendingRequestId} title="基于当前板块重新分析">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 3v5h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M3 21v-5h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M21 3v5h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 12a9 9 0 0 1 15.36-6.36L21 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 21v-5h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M21 12a9 9 0 0 1-15.36 6.36L3 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <button className={styles.toolBtn} onClick={onOpenConfig} title="API 配置">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1.08z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         </div>
@@ -570,88 +591,88 @@ export default function AiChat({
           (() => {
             const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
             return messages.map(m => (
-            <div
-              key={m.id}
-              className={`${styles.msgRow} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}
-              ref={m.id === lastAssistantId ? latestAssistantRef : undefined}
-            >
-              <div className={`${styles.msgAvatar} ${m.role === 'user' ? styles.avatarUser : styles.avatarAssistant}`}>
-                {m.role === 'user' ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="8" r="4.5" fill="currentColor"/>
-                    <path d="M3.5 21c0-4.14 3.86-7.5 8.5-7.5s8.5 3.36 8.5 7.5" fill="currentColor"/>
-                  </svg>
-                ) : '🤖'}
-              </div>
-              <div className={`${styles.msgBubble} ${m.error ? styles.msgError : ''}`}>
-                {/* 思考过程区块（可折叠） */}
-                {m.role === 'assistant' && m.thinkingContent && (
-                  <div className={styles.thinkingSection}>
-                    <button
-                      className={styles.thinkingToggle}
-                      onClick={() => {
-                        const willCollapse = thinkingExpanded[m.id]
-                        setThinkingExpanded(prev => ({ ...prev, [m.id]: !prev[m.id] }))
-                        if (willCollapse === true && m.thinkingStreaming) {
-                          userCollapsedRef.current.add(m.id)
-                        }
-                      }}
-                    >
-                      <svg
-                        className={`${styles.thinkingArrow} ${thinkingExpanded[m.id] ? styles.thinkingArrowOpen : ''}`}
-                        width="10" height="10" viewBox="0 0 24 24" fill="none"
+              <div
+                key={m.id}
+                className={`${styles.msgRow} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}
+                ref={m.id === lastAssistantId ? latestAssistantRef : undefined}
+              >
+                <div className={`${styles.msgAvatar} ${m.role === 'user' ? styles.avatarUser : styles.avatarAssistant}`}>
+                  {m.role === 'user' ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="8" r="4.5" fill="currentColor" />
+                      <path d="M3.5 21c0-4.14 3.86-7.5 8.5-7.5s8.5 3.36 8.5 7.5" fill="currentColor" />
+                    </svg>
+                  ) : '🤖'}
+                </div>
+                <div className={`${styles.msgBubble} ${m.error ? styles.msgError : ''}`}>
+                  {/* 思考过程区块（可折叠） */}
+                  {m.role === 'assistant' && m.thinkingContent && (
+                    <div className={styles.thinkingSection}>
+                      <button
+                        className={styles.thinkingToggle}
+                        onClick={() => {
+                          const willCollapse = thinkingExpanded[m.id]
+                          setThinkingExpanded(prev => ({ ...prev, [m.id]: !prev[m.id] }))
+                          if (willCollapse === true && m.thinkingStreaming) {
+                            userCollapsedRef.current.add(m.id)
+                          }
+                        }}
                       >
-                        <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      <span className={styles.thinkingLabel}>
-                        {m.thinkingStreaming ? '思考中…' : '思考过程'}
-                      </span>
-                      {m.thinkingStreaming && (
-                        <span className={styles.thinkingPulse} />
-                      )}
-                    </button>
-                    {thinkingExpanded[m.id] && (
-                      <div
-                        className={styles.thinkingContent}
-                        ref={m.streaming ? thinkingScrollRef : undefined}
-                      >
+                        <svg
+                          className={`${styles.thinkingArrow} ${thinkingExpanded[m.id] ? styles.thinkingArrowOpen : ''}`}
+                          width="10" height="10" viewBox="0 0 24 24" fill="none"
+                        >
+                          <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span className={styles.thinkingLabel}>
+                          {m.thinkingStreaming ? '思考中…' : '思考过程'}
+                        </span>
+                        {m.thinkingStreaming && (
+                          <span className={styles.thinkingPulse} />
+                        )}
+                      </button>
+                      {thinkingExpanded[m.id] && (
                         <div
-                          className={styles.thinkingText}
-                          dangerouslySetInnerHTML={{ __html: renderMarkdown(m.thinkingContent) }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-                {/* 正在思考但尚无内容时的占位指示 */}
-                {m.role === 'assistant' && m.streaming && !m.content && !m.thinkingContent && (
-                  <span className={styles.typing}>
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                  </span>
-                )}
-                {m.content && (
-                  <div
-                    className={styles.msgContent}
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
-                  />
-                )}
-                {m.role === 'assistant' && !m.streaming && m.content && !m.error && (
-                  <>
-                    <div className={styles.disclaimer}>
-                      以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，入市需谨慎。
+                          className={styles.thinkingContent}
+                          ref={m.streaming ? thinkingScrollRef : undefined}
+                        >
+                          <div
+                            className={styles.thinkingText}
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(m.thinkingContent) }}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <button
-                      className={styles.copyBtn}
-                      onClick={() => navigator.clipboard.writeText(m.content)}
-                      title="复制"
-                    >📋</button>
-                  </>
-                )}
+                  )}
+                  {/* 正在思考但尚无内容时的占位指示 */}
+                  {m.role === 'assistant' && m.streaming && !m.content && !m.thinkingContent && (
+                    <span className={styles.typing}>
+                      <span className={styles.dot} />
+                      <span className={styles.dot} />
+                      <span className={styles.dot} />
+                    </span>
+                  )}
+                  {m.content && (
+                    <div
+                      className={styles.msgContent}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
+                    />
+                  )}
+                  {m.role === 'assistant' && !m.streaming && m.content && !m.error && (
+                    <>
+                      <div className={styles.disclaimer}>
+                        以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，入市需谨慎。
+                      </div>
+                      <button
+                        className={styles.copyBtn}
+                        onClick={() => navigator.clipboard.writeText(m.content)}
+                        title="复制"
+                      >📋</button>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            ))
           })()
         )}
         <div ref={messagesEndRef} />
@@ -678,10 +699,10 @@ export default function AiChat({
                 onClick={() => setModelPickerOpen(!modelPickerOpen)}
                 title="切换模型"
               >
-                <ProviderLogo template={modelInfo.template} size={14} presetLogo={modelInfo.presetLogo} />
+                <ProviderLogo template={modelInfo.template} size={14} presetLogo={modelInfo.presetLogo} presetIconKey={modelInfo.presetIconKey} />
                 <span className={styles.modelSelectorName}>{modelInfo.name}</span>
                 <svg className={styles.modelSelectorArrow} width="10" height="10" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
               {modelPickerOpen && (
@@ -689,7 +710,7 @@ export default function AiChat({
                   {modelGroups.map(g => (
                     <div key={g.provider.id} className={styles.modelGroup}>
                       <div className={styles.modelGroupHeader}>
-                        <ProviderLogo template={g.provider.template} size={12} presetLogo={g.provider.presetLogo} />
+                        <ProviderLogo template={g.provider.template} size={12} presetLogo={g.provider.presetLogo} presetIconKey={g.provider.presetIconKey} />
                         <span className={styles.modelGroupName}>{g.provider.name}</span>
                       </div>
                       {g.models.map((m: AiModelConfig) => {
@@ -700,7 +721,7 @@ export default function AiChat({
                             className={`${styles.modelPickItem} ${isActive ? styles.modelPickActive : ''}`}
                             onClick={() => handlePickModel(g.provider.id, m.id)}
                           >
-                            <ProviderLogo template={g.provider.template} size={14} presetLogo={g.provider.presetLogo} />
+                            <ProviderLogo template={g.provider.template} size={14} presetLogo={g.provider.presetLogo} presetIconKey={g.provider.presetIconKey} />
                             <span className={styles.modelPickName}>{m.name || m.model}</span>
                             {isActive && <span className={styles.modelPickCheck}>✓</span>}
                           </button>
@@ -711,8 +732,8 @@ export default function AiChat({
                   <div className={styles.modelPickerFooter}>
                     <button className={styles.configModelBtn} onClick={() => { setModelPickerOpen(false); onOpenConfig() }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                        <circle cx="12" cy="12" r="3" />
                       </svg>
                       配置模型
                     </button>
@@ -731,8 +752,8 @@ export default function AiChat({
               title="发送"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 4L12 20" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
-                <path d="M5 11L12 4L19 11" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 4L12 20" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                <path d="M5 11L12 4L19 11" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           )}
