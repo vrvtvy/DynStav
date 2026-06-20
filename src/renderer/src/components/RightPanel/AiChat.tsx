@@ -75,15 +75,15 @@ const TEMPLATE_LETTERS: Record<AiProviderTemplate, string> = {
 }
 
 /** 简洁彩色圆形 + 首字母 logo */
-function ProviderLogo({ template, size = 14 }: { template: AiProviderTemplate; size?: number }) {
+function ProviderLogo({ template, size = 14, presetLogo }: { template: AiProviderTemplate; size?: number; presetLogo?: string }) {
   const color = TEMPLATE_COLORS[template]
-  const letter = TEMPLATE_LETTERS[template]
+  const letter = presetLogo || TEMPLATE_LETTERS[template]
   const r = size / 2 - 1
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>
       <circle cx={size / 2} cy={size / 2} r={r} fill={color} />
       <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="central"
-        fill="#fff" fontSize={size * 0.55} fontWeight="700" fontFamily="Arial, sans-serif">
+        fill="#fff" fontSize={presetLogo && presetLogo.length > 1 ? size * 0.4 : size * 0.55} fontWeight="700" fontFamily="Arial, sans-serif">
         {letter}
       </text>
     </svg>
@@ -92,12 +92,13 @@ function ProviderLogo({ template, size = 14 }: { template: AiProviderTemplate; s
 
 /** 获取当前活跃模型的显示信息 */
 function getActiveModelInfo(provider: AiProviderConfig | null, modelId: string | null) {
-  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate }
+  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate, presetLogo: undefined }
   const models = provider.models || []
   const model = (modelId ? models.find(m => m.id === modelId) : null) || models[0]
   return {
     name: model?.name || model?.model || provider.model || '未配置',
-    template: provider.template
+    template: provider.template,
+    presetLogo: provider.presetLogo
   }
 }
 
@@ -478,11 +479,13 @@ export default function AiChat({
 
   const modelInfo = getActiveModelInfo(activeProvider, activeModelId)
 
-  /** 获取所有可用模型，按供应商分组 */
-  const modelGroups = providers.map(p => ({
-    provider: p,
-    models: (p.models || []).filter(m => m.model)
-  })).filter(g => g.models.length > 0)
+  /** 获取所有可用模型，按供应商分组（仅列出已配置 API Key 的供应商） */
+  const modelGroups = providers
+    .filter(p => p.apiKey && p.apiKey.trim())
+    .map(p => ({
+      provider: p,
+      models: (p.models || []).filter(m => m.model)
+    })).filter(g => g.models.length > 0)
 
   function handlePickModel(providerId: string, modelId: string) {
     onModelChange(providerId, modelId)
@@ -668,14 +671,14 @@ export default function AiChat({
             disabled={!!pendingRequestId}
           />
           {/* 模型选择器 */}
-          {hasProvider && modelGroups.length > 0 && (
+          {hasProvider && (
             <div className={styles.modelSelector} ref={modelPickerRef}>
               <button
                 className={styles.modelSelectorBtn}
                 onClick={() => setModelPickerOpen(!modelPickerOpen)}
                 title="切换模型"
               >
-                <ProviderLogo template={modelInfo.template} size={14} />
+                <ProviderLogo template={modelInfo.template} size={14} presetLogo={modelInfo.presetLogo} />
                 <span className={styles.modelSelectorName}>{modelInfo.name}</span>
                 <svg className={styles.modelSelectorArrow} width="10" height="10" viewBox="0 0 24 24" fill="none">
                   <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -686,7 +689,7 @@ export default function AiChat({
                   {modelGroups.map(g => (
                     <div key={g.provider.id} className={styles.modelGroup}>
                       <div className={styles.modelGroupHeader}>
-                        <ProviderLogo template={g.provider.template} size={12} />
+                        <ProviderLogo template={g.provider.template} size={12} presetLogo={g.provider.presetLogo} />
                         <span className={styles.modelGroupName}>{g.provider.name}</span>
                       </div>
                       {g.models.map((m: AiModelConfig) => {
@@ -697,7 +700,7 @@ export default function AiChat({
                             className={`${styles.modelPickItem} ${isActive ? styles.modelPickActive : ''}`}
                             onClick={() => handlePickModel(g.provider.id, m.id)}
                           >
-                            <ProviderLogo template={g.provider.template} size={14} />
+                            <ProviderLogo template={g.provider.template} size={14} presetLogo={g.provider.presetLogo} />
                             <span className={styles.modelPickName}>{m.name || m.model}</span>
                             {isActive && <span className={styles.modelPickCheck}>✓</span>}
                           </button>
@@ -705,6 +708,15 @@ export default function AiChat({
                       })}
                     </div>
                   ))}
+                  <div className={styles.modelPickerFooter}>
+                    <button className={styles.configModelBtn} onClick={() => { setModelPickerOpen(false); onOpenConfig() }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                      配置模型
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

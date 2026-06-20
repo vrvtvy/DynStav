@@ -78,11 +78,11 @@ export default function GuideContent() {
             </div>
             <div className={welcomeStyles.tutorialStep}>
               <span className={welcomeStyles.tutorialNum}>2</span>
-              <span>点击「新增」添加供应商，填写名称、选择接口模板（OpenAI / Azure / Anthropic / 自定义），填入 API 地址和密钥</span>
+              <span>从预设服务商列表中选择一家（如 DeepSeek、通义千问等），或点击「新增」自定义供应商，填入 API 密钥</span>
             </div>
             <div className={welcomeStyles.tutorialStep}>
               <span className={welcomeStyles.tutorialNum}>3</span>
-              <span>在模型列表区域点击「添加模型」，配置模型的 API 名称、显示名、Temperature 等参数；需要时可添加自定义参数</span>
+              <span>点击「获取模型列表」自动拉取该服务商最新可用模型；也可手动「添加模型」并配置 API 名称、显示名、Temperature 等参数</span>
             </div>
             <div className={welcomeStyles.tutorialStep}>
               <span className={welcomeStyles.tutorialNum}>4</span>
@@ -94,7 +94,8 @@ export default function GuideContent() {
             </div>
           </div>
           <p className={welcomeStyles.cardTextBlue}>
-            每个供应商可以配置多个模型，并可为每个模型单独设置自定义请求参数<br/>
+            内置 13 家主流 AI 服务商预设，填入 API Key 后即可获取最新模型列表，无需手动维护<br/>
+            每个供应商可配置多个模型，并可为每个模型单独设置自定义请求参数<br/>
             （如 reasoning_effort、top_p 等），满足不同场景的分析需求。
           </p>
         </div>

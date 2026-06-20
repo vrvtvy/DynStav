@@ -146,6 +146,9 @@ const electronAPI = {
   aiTestProvider: (provider: AiProviderConfig): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke(IPC_CHANNELS.AI_TEST_PROVIDER, provider),
 
+  aiFetchModels: (provider: AiProviderConfig): Promise<string[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AI_FETCH_MODELS, provider),
+
   // ─── AI 对话历史 ───
   aiListSessions: (blockCode: string): Promise<ChatSession[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.AI_LIST_SESSIONS, blockCode),

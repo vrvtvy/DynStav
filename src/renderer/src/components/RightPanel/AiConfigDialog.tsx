@@ -92,12 +92,16 @@ export default function AiConfigDialog({
   const [testingModelId, setTestingModelId] = useState<string | null>(null)
   /** 模型列表容器引用：添加模型后自动滚动到编辑区 */
   const modelListRef = useRef<HTMLDivElement>(null)
+  /** 供应商列表容器引用：新增供应商后自动滚动到对应项 */
+  const sidebarListRef = useRef<HTMLDivElement>(null)
+  /** 获取模型列表中的状态 */
+  const [fetchingModels, setFetchingModels] = useState(false)
 
   useEffect(() => {
     if (open) {
-      // 向后兼容：为没有 models 数组的旧供应商自动创建一个模型
+      // 向后兼容：为非预设的旧供应商自动创建一个模型（预设提供商保持空列表，由用户获取）
       const migrated = providers.map(p => {
-        if (!p.models || p.models.length === 0) {
+        if (!p.isPreset && (!p.models || p.models.length === 0)) {
           return {
             ...p,
             models: [{
@@ -112,7 +116,9 @@ export default function AiConfigDialog({
       })
       setList(migrated)
       setActive(activeId)
-      setEditingId(migrated[0]?.id ?? null)
+      // 优先展示当前活跃供应商（即当前所选模型对应的供应商），无匹配时回退到第一个
+      const target = activeId ? migrated.find(p => p.id === activeId) : null
+      setEditingId(target?.id ?? migrated[0]?.id ?? null)
       setEditingModelId(null)
       setModelTestResults({})
       setError('')
@@ -160,6 +166,11 @@ export default function AiConfigDialog({
     setEditingId(item.id)
     setActive(item.id)
     setEditingModelId(null)
+    // 新增后自动滚动到该供应商
+    requestAnimationFrame(() => {
+      const el = sidebarListRef.current?.querySelector(`[data-provider-id="${item.id}"]`) as HTMLElement | null
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
   }
 
   function handleDelete(id: string) {
@@ -172,15 +183,50 @@ export default function AiConfigDialog({
     }
   }
 
+  // ─── 获取模型列表 ───
+
+  async function handleFetchModels() {
+    if (!editing || !editing.apiKey.trim()) return
+    setFetchingModels(true)
+    setError('')
+    try {
+      const modelIds = await window.electronAPI.aiFetchModels(editing)
+      if (modelIds.length === 0) {
+        setError('未获取到任何模型')
+        return
+      }
+      // 将获取到的模型添加到列表中（跳过已存在的）
+      const existingModels = new Set((editing.models || []).map(m => m.model))
+      const newModels: AiModelConfig[] = modelIds
+        .filter(id => !existingModels.has(id))
+        .map(id => ({
+          id: genModelId(),
+          model: id,
+          name: '',
+          customParams: { setCacheKey: 'true' }
+        }))
+      if (newModels.length === 0) {
+        setError('所有模型已存在，无需重复添加')
+        return
+      }
+      const models = [...(editing.models || []), ...newModels]
+      setList(prev => prev.map(p => (p.id === editing.id ? { ...p, models } : p)))
+    } catch (e: any) {
+      setError(`获取模型列表失败：${e?.message || '未知错误'}`)
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
   // ─── 模型管理 ───
 
   function handleAddModel() {
     if (!editing) return
-    const preset = TEMPLATE_PRESETS[editing.template]
     const newModel: AiModelConfig = {
       id: genModelId(),
-      model: preset.model || '',
-      name: ''
+      model: '',
+      name: '',
+      customParams: { setCacheKey: 'true' }
     }
     const models = [...(editing.models || []), newModel]
     setList(prev => prev.map(p => (p.id === editing.id ? { ...p, models } : p)))
@@ -275,13 +321,16 @@ export default function AiConfigDialog({
     setError('')
     for (const p of list) {
       if (!p.name.trim()) { setError(`供应商「${p.name || '(未命名)'}」名称不能为空`); return }
-      if (!p.baseUrl.trim()) { setError(`供应商「${p.name}」的 API 地址不能为空`); return }
-      if (!p.apiKey.trim()) { setError(`供应商「${p.name}」的 API 密钥不能为空`); return }
-      if (!p.models || p.models.length === 0) {
-        setError(`供应商「${p.name}」至少需要一个模型`); return
-      }
-      for (const m of p.models) {
-        if (!m.model.trim()) { setError(`供应商「${p.name}」中有模型的 API 名称为空`); return }
+      // 预设提供商允许不填 API Key（用户可稍后配置），仅校验自定义提供商
+      if (!p.isPreset) {
+        if (!p.baseUrl.trim()) { setError(`供应商「${p.name}」的 API 地址不能为空`); return }
+        if (!p.apiKey.trim()) { setError(`供应商「${p.name}」的 API 密钥不能为空`); return }
+        if (!p.models || p.models.length === 0) {
+          setError(`供应商「${p.name}」至少需要一个模型`); return
+        }
+        for (const m of p.models) {
+          if (!m.model.trim()) { setError(`供应商「${p.name}」中有模型的 API 名称为空`); return }
+        }
       }
     }
     setSaving(true)
@@ -296,6 +345,8 @@ export default function AiConfigDialog({
   }
 
   const preset = editing ? TEMPLATE_PRESETS[editing.template] : null
+  const presetList = list.filter(p => p.isPreset)
+  const customList = list.filter(p => !p.isPreset)
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -312,13 +363,51 @@ export default function AiConfigDialog({
               <span className={styles.sidebarTitle}>供应商</span>
               <button className={styles.addBtn} onClick={handleAdd} title="新增供应商">+ 新增</button>
             </div>
-            <div className={styles.providerList}>
+            <div className={styles.providerList} ref={sidebarListRef}>
               {list.length === 0 && (
                 <div className={styles.emptyHint}>暂无配置，点击「新增」添加</div>
               )}
-              {list.map(p => (
+
+              {/* ── 预设提供商 ── */}
+              {presetList.length > 0 && (
+                <div className={styles.sidebarSectionTitle}>预设服务</div>
+              )}
+              {presetList.map(p => (
                 <div
                   key={p.id}
+                  data-provider-id={p.id}
+                  className={`${styles.providerItem} ${editingId === p.id ? styles.providerItemActive : ''}`}
+                  onClick={() => { setEditingId(p.id); setEditingModelId(null) }}
+                >
+                  <span className={styles.providerRadio}>
+                    <input
+                      type="radio"
+                      checked={active === p.id}
+                      onChange={() => setActive(p.id)}
+                      onClick={e => e.stopPropagation()}
+                      title="设为当前使用"
+                    />
+                  </span>
+                  <div className={styles.providerInfo}>
+                    <div className={styles.providerName}>
+                      {p.name}
+                      <span className={styles.presetBadge}>预设</span>
+                    </div>
+                    <div className={styles.providerSub}>
+                      {TEMPLATE_PRESETS[p.template].label} · {(p.models || []).length} 个模型
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* ── 自定义提供商 ── */}
+              {customList.length > 0 && (
+                <div className={styles.sidebarSectionTitle}>自定义</div>
+              )}
+              {customList.map(p => (
+                <div
+                  key={p.id}
+                  data-provider-id={p.id}
                   className={`${styles.providerItem} ${editingId === p.id ? styles.providerItemActive : ''}`}
                   onClick={() => { setEditingId(p.id); setEditingModelId(null) }}
                 >
@@ -354,14 +443,23 @@ export default function AiConfigDialog({
                 {/* ─── 供应商基本信息 ─── */}
                 <div className={styles.sectionTitle}>供应商信息</div>
 
+                {editing.isPreset && !editing.apiKey && (
+                  <div className={styles.presetHint}>
+                    此为预设服务商，填入您的 API Key 后可点击「获取模型列表」自动添加可用模型。
+                  </div>
+                )}
+
                 <div className={styles.formGroup}>
                   <label className={styles.label}>名称</label>
-                  <input
-                    className={styles.input}
-                    value={editing.name}
-                    onChange={e => update('name', e.target.value)}
-                    placeholder="例如：我的 OpenAI"
-                  />
+                  <div className={styles.inputWithClear}>
+                    <input
+                      className={styles.input}
+                      value={editing.name}
+                      onChange={e => update('name', e.target.value)}
+                      placeholder="例如：我的 OpenAI"
+                    />
+                    {editing.name && <button className={styles.clearBtn} onClick={() => update('name', '')} title="清空">&#x2715;</button>}
+                  </div>
                 </div>
 
                 <div className={styles.formRow}>
@@ -380,35 +478,44 @@ export default function AiConfigDialog({
                   </div>
                   <div className={styles.formGroup}>
                     <label className={styles.label}>请求路径（可选）</label>
-                    <input
-                      className={styles.input}
-                      value={editing.path || ''}
-                      onChange={e => update('path', e.target.value)}
-                      placeholder="/chat/completions"
-                    />
+                    <div className={styles.inputWithClear}>
+                      <input
+                        className={styles.input}
+                        value={editing.path || ''}
+                        onChange={e => update('path', e.target.value)}
+                        placeholder="/chat/completions"
+                      />
+                      {editing.path && <button className={styles.clearBtn} onClick={() => update('path', '')} title="清空">&#x2715;</button>}
+                    </div>
                   </div>
                 </div>
 
                 <div className={styles.formGroup}>
                   <label className={styles.label}>API 地址（Base URL）</label>
-                  <input
-                    className={styles.input}
-                    value={editing.baseUrl}
-                    onChange={e => update('baseUrl', e.target.value)}
-                    placeholder="https://api.openai.com/v1"
-                  />
+                  <div className={styles.inputWithClear}>
+                    <input
+                      className={styles.input}
+                      value={editing.baseUrl}
+                      onChange={e => update('baseUrl', e.target.value)}
+                      placeholder="https://api.openai.com/v1"
+                    />
+                    {editing.baseUrl && <button className={styles.clearBtn} onClick={() => update('baseUrl', '')} title="清空">&#x2715;</button>}
+                  </div>
                 </div>
 
                 <div className={styles.formGroup}>
                   <label className={styles.label}>API 密钥</label>
-                  <input
-                    className={styles.input}
-                    type="password"
-                    value={editing.apiKey}
-                    onChange={e => update('apiKey', e.target.value)}
-                    placeholder="sk-..."
-                    autoComplete="off"
-                  />
+                  <div className={styles.inputWithClear}>
+                    <input
+                      className={styles.input}
+                      type="password"
+                      value={editing.apiKey}
+                      onChange={e => update('apiKey', e.target.value)}
+                      placeholder="sk-..."
+                      autoComplete="off"
+                    />
+                    {editing.apiKey && <button className={styles.clearBtn} onClick={() => update('apiKey', '')} title="清空">&#x2715;</button>}
+                  </div>
                   <div className={styles.hint}>密钥经系统级 DPAPI 加密后存储于本地配置目录。</div>
                 </div>
 
@@ -428,7 +535,19 @@ export default function AiConfigDialog({
                 {/* ─── 模型列表 ─── */}
                 <div className={styles.sectionTitle}>
                   模型列表
-                  <button className={styles.addModelBtn} onClick={handleAddModel}>+ 添加模型</button>
+                  <div className={styles.modelListActions}>
+                    {editing.isPreset && (
+                      <button
+                        className={styles.fetchModelsBtn}
+                        onClick={handleFetchModels}
+                        disabled={fetchingModels || !editing.apiKey.trim()}
+                        title={!editing.apiKey.trim() ? '请先填写 API Key' : '从服务商 API 获取可用模型列表'}
+                      >
+                        {fetchingModels ? '获取中...' : '获取模型列表'}
+                      </button>
+                    )}
+                    <button className={styles.addModelBtn} onClick={handleAddModel}>+ 添加模型</button>
+                  </div>
                 </div>
 
                 <div className={styles.modelList} ref={modelListRef}>
@@ -458,7 +577,6 @@ export default function AiConfigDialog({
                             className={styles.modelDelBtn}
                             onClick={(e) => { e.stopPropagation(); handleDeleteModel(m.id) }}
                             title="删除模型"
-                            disabled={editingModels.length <= 1}
                           >&#x2715;</button>
                         </div>
                         {editingModelId === m.id && (

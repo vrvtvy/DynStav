@@ -21,7 +21,8 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   width: 70%;
   max-width: 960px;
-  max-height: 80vh;
+  height: 90vh;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   padding: 24px;
@@ -70,7 +71,7 @@
 
 /* ─── 左侧供应商列表 ─── */
 .sidebar {
-  width: 200px;
+  width: 240px;
   flex-shrink: 0;
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -180,6 +181,40 @@
 .delBtn:hover {
   background: var(--accent-danger);
   color: #fff;
+}
+
+/* ─── 侧边栏分组 ─── */
+.sidebarSectionTitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 8px var(--spacing-sm) 2px;
+  user-select: none;
+}
+
+.presetBadge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  margin-left: 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  color: var(--accent-primary);
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.presetHint {
+  padding: 8px 12px;
+  margin-bottom: var(--spacing-md);
+  border-radius: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 20%, transparent);
 }
 
 /* ─── 右侧表单 ─── */
@@ -557,5 +592,62 @@
 
 .saveBtn:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── 带清空按钮的输入框 ─── */
+.inputWithClear {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputWithClear .input {
+  padding-right: 28px;
+}
+
+.clearBtn {
+  position: absolute;
+  right: 6px;
+  padding: 2px 5px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--transition-speed), background var(--transition-speed);
+}
+
+.clearBtn:hover {
+  background: var(--bg-hover);
+  color: var(--accent-danger);
+}
+
+/* ─── 模型列表操作栏 ─── */
+.modelListActions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-left: auto;
+}
+
+.fetchModelsBtn {
+  padding: 3px 10px;
+  border: 1px solid var(--accent-primary);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.fetchModelsBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+}
+
+.fetchModelsBtn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }

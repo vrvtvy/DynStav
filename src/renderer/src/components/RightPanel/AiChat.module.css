@@ -650,3 +650,30 @@
   font-size: 12px;
   flex-shrink: 0;
 }
+
+.modelPickerFooter {
+  border-top: 1px solid var(--border-color);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.configModelBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.configModelBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

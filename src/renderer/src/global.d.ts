@@ -49,6 +49,7 @@ declare global {
       aiListProviders: () => Promise<{ providers: AiProviderConfig[]; activeId: string | null }>
       aiSaveProviders: (data: { providers: AiProviderConfig[]; activeId: string | null }) => Promise<{ providers: AiProviderConfig[]; activeId: string | null }>
       aiTestProvider: (provider: AiProviderConfig) => Promise<{ ok: boolean; message: string }>
+      aiFetchModels: (provider: AiProviderConfig) => Promise<string[]>
       // AI 对话历史
       aiListSessions: (blockCode: string) => Promise<ChatSession[]>
       aiGetSession: (sessionId: string) => Promise<ChatSessionMessage[]>

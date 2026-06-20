@@ -19,7 +19,8 @@ import {
   testProvider,
   loadProviders,
   saveProviders,
-  genId
+  genId,
+  fetchModels
 } from '../ai/service'
 
 type IpcInvokeHandler = (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any
@@ -246,6 +247,10 @@ export function registerIpcHandlers(): void {
 
   safeHandle(IPC_CHANNELS.AI_TEST_PROVIDER, async (_event, provider) => {
     return testProvider(provider)
+  })
+
+  safeHandle(IPC_CHANNELS.AI_FETCH_MODELS, async (_event, provider) => {
+    return fetchModels(provider)
   })
 
   // ─── AI 对话历史 ───

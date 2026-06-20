@@ -125,6 +125,10 @@ export interface AiProviderConfig {
   models?: AiModelConfig[]
   /** 自定义请求参数（由模型级 customParams 合并而来，运行时注入） */
   customParams?: Record<string, string>
+  /** 预设标记：true 表示系统预设提供商，不可删除 */
+  isPreset?: boolean
+  /** 预设 Logo 缩写（1-2 字母），如 "DS"、"MK" */
+  presetLogo?: string
 }
 
 /** AI 适配模板类型 */
@@ -241,6 +245,7 @@ export const IPC_CHANNELS = {
   AI_LIST_PROVIDERS: 'ai-list-providers',
   AI_SAVE_PROVIDERS: 'ai-save-providers',
   AI_TEST_PROVIDER: 'ai-test-provider',
+  AI_FETCH_MODELS: 'ai-fetch-models',
   AI_LIST_SESSIONS: 'ai-list-sessions',
   AI_GET_SESSION: 'ai-get-session',
   AI_SAVE_SESSION: 'ai-save-session',

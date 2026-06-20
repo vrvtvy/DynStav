@@ -9,6 +9,7 @@ import {
 } from '../../renderer/src/types'
 import { getAdapter } from './adapters'
 import { injectContext, ProviderAdapter } from './types'
+import { mergePresets } from './presets'
 
 /**
  * AI 服务层。所有对外的（HTTP、配置持久化）都在主进程完成，
@@ -340,7 +341,7 @@ function decrypt(enc: string): string {
 
 export function loadProviders(): { providers: AiProviderConfig[]; activeId: string | null } {
   const path = getConfigPath(AI_FILE)
-  if (!existsSync(path)) return { providers: [], activeId: null }
+  if (!existsSync(path)) return { providers: mergePresets([]), activeId: null }
   try {
     const raw = JSON.parse(readFileSync(path, 'utf-8'))
     const list: StoredProvider[] = raw.providers || []
@@ -348,14 +349,16 @@ export function loadProviders(): { providers: AiProviderConfig[]; activeId: stri
       ...p,
       apiKey: p.apiKeyEnc ? decrypt(p.apiKeyEnc) : ''
     }))
-    return { providers, activeId: raw.activeId ?? null }
+    return { providers: mergePresets(providers), activeId: raw.activeId ?? null }
   } catch {
-    return { providers: [], activeId: null }
+    return { providers: mergePresets([]), activeId: null }
   }
 }
 
 export function saveProviders(providers: AiProviderConfig[], activeId: string | null): void {
-  const list: StoredProvider[] = providers.map(({ apiKey, ...rest }) => ({
+  // 防御性合并：确保预设提供商不会被意外删除
+  const merged = mergePresets(providers)
+  const list: StoredProvider[] = merged.map(({ apiKey, ...rest }) => ({
     ...rest,
     apiKeyEnc: encrypt(apiKey)
   }))
@@ -366,4 +369,65 @@ export function saveProviders(providers: AiProviderConfig[], activeId: string | 
 export async function findProvider(id: string): Promise<AiProviderConfig | null> {
   const { providers } = loadProviders()
   return providers.find(p => p.id === id) || null
+}
+
+/**
+ * 从供应商 API 获取可用模型列表（OpenAI 兼容的 /models 端点）。
+ * 返回模型 id 数组，失败时抛出异常。
+ */
+export async function fetchModels(provider: AiProviderConfig): Promise<string[]> {
+  if (provider.template === 'anthropic') {
+    throw new Error('Anthropic 不支持 /models 端点，请手动添加模型')
+  }
+  const baseUrl = provider.baseUrl.replace(/\/+$/, '')
+  const url = `${baseUrl}/models`
+
+  return new Promise<string[]>((resolve, reject) => {
+    const req = net.request({
+      method: 'GET',
+      url,
+      redirect: 'follow',
+    })
+
+    // 设置超时
+    const timeout = setTimeout(() => {
+      req.abort()
+      reject(new Error('请求超时'))
+    }, provider.timeoutMs || 15000)
+
+    // 认证头
+    req.setHeader('Authorization', `Bearer ${provider.apiKey}`)
+    req.setHeader('Accept', 'application/json')
+
+    let body = ''
+    req.on('response', (response) => {
+      if (response.statusCode !== 200) {
+        clearTimeout(timeout)
+        reject(new Error(`HTTP ${response.statusCode}`))
+        return
+      }
+      response.on('data', (chunk) => { body += chunk.toString() })
+      response.on('end', () => {
+        clearTimeout(timeout)
+        try {
+          const json = JSON.parse(body)
+          const data = json.data || json.models || []
+          const models = data
+            .map((m: any) => m.id || m.name || '')
+            .filter((id: string) => id)
+            .sort()
+          resolve(models)
+        } catch {
+          reject(new Error('响应解析失败'))
+        }
+      })
+    })
+
+    req.on('error', (err) => {
+      clearTimeout(timeout)
+      reject(err)
+    })
+
+    req.end()
+  })
 }
