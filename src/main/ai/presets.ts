@@ -140,13 +140,13 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     supportsFetchModels: true,
   },
   {
-    presetId: 'groq',
-    name: 'Groq',
+    presetId: 'grok',
+    name: 'Grok',
     template: 'openai',
-    baseUrl: 'https://api.groq.com/openai/v1',
+    baseUrl: 'https://api.x.ai/v1',
     path: '/chat/completions',
-    logo: 'GQ',
-    iconKey: 'groq',
+    logo: 'GK',
+    iconKey: 'grok',
     supportsFetchModels: true,
   },
   {
