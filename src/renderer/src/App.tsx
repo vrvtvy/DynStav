@@ -310,7 +310,9 @@ export default function App() {
               <h2 className={styles.guideDialogTitle}>使用指南</h2>
               <button className={styles.guideCloseBtn} onClick={() => setGuideOpen(false)}>✕</button>
             </div>
-            <GuideContent />
+            <div className={styles.guideDialogBody}>
+              <GuideContent />
+            </div>
           </div>
         </div>
       )}

@@ -63,8 +63,12 @@ export default function GuideContent() {
       {/* ── AI 分析配置（绿色） ── */}
       <div className={welcomeStyles.tutorialCard}>
         <svg className={welcomeStyles.cardIcon} viewBox="0 0 24 24" fill="none" stroke="var(--accent-success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/>
-          <path d="M12 6v6l4 2"/>
+          <rect x="3" y="8" width="18" height="12" rx="2"/>
+          <circle cx="9" cy="14" r="1.5" fill="var(--accent-success)" stroke="none"/>
+          <circle cx="15" cy="14" r="1.5" fill="var(--accent-success)" stroke="none"/>
+          <path d="M12 2v4"/>
+          <path d="M8 20v2"/>
+          <path d="M16 20v2"/>
         </svg>
         <div className={welcomeStyles.cardContent}>
           <h3 className={welcomeStyles.cardTitle} style={{ color: 'var(--accent-primary)' }}>AI 分析配置</h3>

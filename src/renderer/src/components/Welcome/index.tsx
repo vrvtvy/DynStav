@@ -177,7 +177,13 @@ export default function Welcome({ onComplete }: { onComplete: () => void }) {
             </div>
 
             {/* ── 使用教程 + 免责声明 ── */}
-            <GuideContent />
+            <div style={{
+              maxHeight: `${window.innerHeight - 240}px`,
+              overflowY: 'auto',
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}>
+              <GuideContent />
+            </div>
 
             <div className={styles.navRow}>
               <button className={styles.backBtn} onClick={() => goToStep(1)}>上一步</button>
