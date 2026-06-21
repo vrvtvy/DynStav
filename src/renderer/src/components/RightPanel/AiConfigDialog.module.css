@@ -343,7 +343,7 @@
   border-radius: 6px;
   cursor: pointer;
   transition: border-color var(--transition-speed), background var(--transition-speed);
-  overflow: hidden;
+  overflow: clip;
 }
 
 .modelItem:hover {
@@ -400,7 +400,7 @@
 }
 
 .modelEditForm {
-  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-sm);
   border-top: 1px solid var(--border-color);
   background: var(--bg-primary);
 }

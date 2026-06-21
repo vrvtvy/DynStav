@@ -136,11 +136,25 @@ export default function AiConfigDialog({
   // 展开/折叠模型编辑区时自动滚动到对应模型
   useEffect(() => {
     if (editingModelId && modelListRef.current) {
+      // 双重 rAF：等待展开内容完成渲染和布局
       requestAnimationFrame(() => {
-        const el = modelListRef.current?.querySelector(`[data-model-id="${editingModelId}"]`) as HTMLElement | null
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-        }
+        requestAnimationFrame(() => {
+          const el = modelListRef.current?.querySelector(`[data-model-id="${editingModelId}"]`) as HTMLElement | null
+          if (!el) return
+          // 找到滚动容器（.formArea）
+          let container: HTMLElement | null = modelListRef.current
+          while (container && container !== document.body) {
+            const ov = getComputedStyle(container).overflowY
+            if (ov === 'auto' || ov === 'scroll') break
+            container = container.parentElement
+          }
+          if (!container || container === document.body) return
+          // 将展开条目定位到滚动容器顶部附近，留出空间显示底部蓝色边线
+          const elRect = el.getBoundingClientRect()
+          const containerRect = container.getBoundingClientRect()
+          const delta = elRect.top - containerRect.top - 10
+          container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' })
+        })
       })
     }
   }, [editingModelId])
