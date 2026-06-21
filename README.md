@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="resources/icon.png" alt="DynStav" width="128" />
+
 # DynStav
 
 **动态板块趋势分析可视化** · Dynamic Sector Trend Analysis Visualization
@@ -22,6 +24,7 @@ DynStav 是一款 **Windows 桌面应用**（基于 Electron + React + TypeScrip
 2. 获取板块中各股票的行情。
 3. 计算每个板块的：**股票数量、平均涨跌幅、平均股价、平均成交额、总成交额、平均换手率**。
 4. 将历史数据持久化到本地 SQLite，并通过 ECharts 可视化展示，帮助你判断市场环境与板块趋势。
+5. 内置 **AI 对话面板**，基于当前板块的真实行情数据进行智能分析，支持多家主流大模型接口，一键获取洞察。
 
 > 适合每天看盘时快速感知"自己关注的板块整体强弱"。
 
@@ -121,15 +124,15 @@ src/
 
 ## 🧱 技术栈
 
-| 领域     | 技术                                |
-| -------- | ----------------------------------- |
-| 框架     | Electron 33、React 18、TypeScript 5 |
-| 构建     | electron-vite、electron-builder     |
-| 可视化   | ECharts 5、echarts-for-react        |
+| 领域     | 技术                                        |
+| -------- | ------------------------------------------- |
+| 框架     | Electron 33、React 18、TypeScript 5         |
+| 构建     | electron-vite、electron-builder             |
+| 可视化   | ECharts 5、echarts-for-react                |
 | AI 对话  | OpenAI / Azure / Anthropic / 自定义兼容接口 |
-| 数据存储 | sql.js（SQLite 的 WASM 版本）       |
-| 日志     | electron-log                        |
-| 编码处理 | iconv-lite（解析 GB18030 配置）     |
+| 数据存储 | sql.js（SQLite 的 WASM 版本）               |
+| 日志     | electron-log                                |
+| 编码处理 | iconv-lite（解析 GB18030 配置）             |
 
 ---
 
