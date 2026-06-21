@@ -62,16 +62,16 @@ function deriveTitle(msgs: UiMessage[]): string {
 
 /** 供应商模板对应的 logo 颜色（fallback 用） */
 const TEMPLATE_COLORS: Record<AiProviderTemplate, string> = {
-  openai: '#10a37f',
-  azure: '#0078d4',
+  completion: '#10a37f',
+  responses: '#0078d4',
   anthropic: '#d97706',
   custom: '#6b7280'
 }
 
 /** 供应商模板对应的 logo 字母（fallback 用） */
 const TEMPLATE_LETTERS: Record<AiProviderTemplate, string> = {
-  openai: 'O',
-  azure: 'A',
+  completion: 'C',
+  responses: 'R',
   anthropic: 'C',
   custom: '?'
 }
@@ -93,8 +93,10 @@ function ProviderLogo({
   }
 
   if (presetIconKey) {
-    const color = TEMPLATE_COLORS[template]
-    const letter = presetLogo || TEMPLATE_LETTERS[template]
+    // 兼容旧模板名 openai→completion, azure→responses
+    const tplKey = (template === 'openai' ? 'completion' : template === 'azure' ? 'responses' : template) as AiProviderTemplate
+    const color = TEMPLATE_COLORS[tplKey] ?? '#6b7280'
+    const letter = presetLogo || TEMPLATE_LETTERS[tplKey] || '?'
     const r = size / 2 - 1
     return (
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>

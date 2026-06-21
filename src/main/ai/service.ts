@@ -2,6 +2,7 @@ import { net } from 'electron'
 import log from 'electron-log/main'
 import {
   AiProviderConfig,
+  AiProviderTemplate,
   AiModelConfig,
   AiChatRequest,
   AiChatChunk,
@@ -345,10 +346,18 @@ export function loadProviders(): { providers: AiProviderConfig[]; activeId: stri
   try {
     const raw = JSON.parse(readFileSync(path, 'utf-8'))
     const list: StoredProvider[] = raw.providers || []
-    const providers: AiProviderConfig[] = list.map(p => ({
-      ...p,
-      apiKey: p.apiKeyEnc ? decrypt(p.apiKeyEnc) : ''
-    }))
+    const providers: AiProviderConfig[] = list.map(p => {
+      // 迁移旧模板名（openai→completion, azure→responses）
+      const rawTpl = p.template as string
+      let template: AiProviderTemplate = p.template
+      if (rawTpl === 'openai') template = 'completion'
+      else if (rawTpl === 'azure') template = 'responses'
+      return {
+        ...p,
+        template,
+        apiKey: p.apiKeyEnc ? decrypt(p.apiKeyEnc) : ''
+      }
+    })
     return { providers: mergePresets(providers), activeId: raw.activeId ?? null }
   } catch {
     return { providers: mergePresets([]), activeId: null }

@@ -105,9 +105,9 @@ export interface AiProviderConfig {
   id: string
   /** 显示名称 */
   name: string
-  /** 适配模板：openai | azure | anthropic | custom */
+  /** 适配模板：completion | responses | anthropic | custom */
   template: AiProviderTemplate
-  /** API 基础地址，如 https://api.openai.com/v1 */
+  /** API 基础地址，如 https://api.openai.com/v1 */ 
   baseUrl: string
   /** 模型名称（向后兼容，仅当 models 为空时使用） */
   model: string
@@ -136,7 +136,7 @@ export interface AiProviderConfig {
 }
 
 /** AI 适配模板类型 */
-export type AiProviderTemplate = 'openai' | 'azure' | 'anthropic' | 'custom'
+export type AiProviderTemplate = 'completion' | 'responses' | 'anthropic' | 'custom'
 
 /** AI 对话角色 */
 export type ChatRole = 'system' | 'user' | 'assistant'

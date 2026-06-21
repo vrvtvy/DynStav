@@ -165,10 +165,13 @@ export const customAdapter: ProviderAdapter = {
 }
 
 const ADAPTERS: Record<string, ProviderAdapter> = {
-  openai: openaiAdapter,
-  azure: azureAdapter,
+  completion: openaiAdapter,
+  responses: openaiAdapter,
   anthropic: anthropicAdapter,
-  custom: customAdapter
+  custom: customAdapter,
+  // 向后兼容旧模板名
+  openai: openaiAdapter,
+  azure: azureAdapter
 }
 
 export function getAdapter(config: AiProviderConfig): ProviderAdapter {

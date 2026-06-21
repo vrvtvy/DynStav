@@ -20,25 +20,25 @@ const TEMPLATE_PRESETS: Record<
   AiProviderTemplate,
   { label: string; baseUrl: string; path: string; model: string; hint: string }
 > = {
-  openai: {
-    label: 'OpenAI 兼容',
-    baseUrl: 'https://api.openai.com/v1',
+  completion: {
+    label: 'Chat Completions',
+    baseUrl: '',
     path: '/chat/completions',
-    model: 'gpt-4o-mini',
+    model: '',
     hint: 'OpenAI 及其兼容网关（deepseek、moonshot、本地 vLLM/Ollama 等）'
   },
-  azure: {
-    label: 'Azure OpenAI',
+  responses: {
+    label: 'Responses',
     baseUrl: '',
-    path: '',
-    model: 'deployment-name',
-    hint: 'baseUrl 填 endpoint，model 填部署名（自动拼接 /openai/deployments/{model}/chat/completions）'
+    path: '/responses',
+    model: '',
+    hint: 'OpenAI 最先进的模型响应接口。支持文本和图像输入，以及文本输出。'
   },
   anthropic: {
-    label: 'Anthropic Claude',
+    label: 'Anthropic Messages',
     baseUrl: 'https://api.anthropic.com',
     path: '/v1/messages',
-    model: 'claude-3-5-sonnet-latest',
+    model: '',
     hint: 'Anthropic Messages API'
   },
   custom: {
@@ -50,12 +50,20 @@ const TEMPLATE_PRESETS: Record<
   }
 }
 
+/** 兼容旧版模板名，确保 TEMPLATE_PRESETS 查找不崩溃 */
+function normalizeTemplate(tpl: string): AiProviderTemplate {
+  if (tpl === 'openai') return 'completion'
+  if (tpl === 'azure') return 'responses'
+  if (tpl in TEMPLATE_PRESETS) return tpl as AiProviderTemplate
+  return 'custom'
+}
+
 const DEFAULT_PROVIDER: Omit<AiProviderConfig, 'id'> = {
   name: '',
-  template: 'openai',
-  baseUrl: TEMPLATE_PRESETS.openai.baseUrl,
-  model: TEMPLATE_PRESETS.openai.model,
-  path: TEMPLATE_PRESETS.openai.path,
+  template: 'completion',
+  baseUrl: TEMPLATE_PRESETS.completion.baseUrl,
+  model: TEMPLATE_PRESETS.completion.model,
+  path: TEMPLATE_PRESETS.completion.path,
   apiKey: '',
   timeoutMs: 15000,
   temperature: 0.3,
@@ -344,7 +352,7 @@ export default function AiConfigDialog({
     }
   }
 
-  const preset = editing ? TEMPLATE_PRESETS[editing.template] : null
+  const preset = editing ? TEMPLATE_PRESETS[normalizeTemplate(editing.template)] : null
   const presetList = list.filter(p => p.isPreset)
   const customList = list.filter(p => !p.isPreset)
 
@@ -394,7 +402,7 @@ export default function AiConfigDialog({
                       <span className={styles.presetBadge}>预设</span>
                     </div>
                     <div className={styles.providerSub}>
-                      {TEMPLATE_PRESETS[p.template].label} · {(p.models || []).length} 个模型
+                      {TEMPLATE_PRESETS[normalizeTemplate(p.template)].label} · {(p.models || []).length} 个模型
                     </div>
                   </div>
                 </div>
@@ -423,7 +431,7 @@ export default function AiConfigDialog({
                   <div className={styles.providerInfo}>
                     <div className={styles.providerName}>{p.name}</div>
                     <div className={styles.providerSub}>
-                      {TEMPLATE_PRESETS[p.template].label} · {(p.models || []).length} 个模型
+                      {TEMPLATE_PRESETS[normalizeTemplate(p.template)].label} · {(p.models || []).length} 个模型
                     </div>
                   </div>
                   <button
@@ -497,7 +505,7 @@ export default function AiConfigDialog({
                       className={styles.input}
                       value={editing.baseUrl}
                       onChange={e => update('baseUrl', e.target.value)}
-                      placeholder="https://api.openai.com/v1"
+                      placeholder="https://api.example.com/v1"
                     />
                     {editing.baseUrl && <button className={styles.clearBtn} onClick={() => update('baseUrl', '')} title="清空">&#x2715;</button>}
                   </div>
@@ -597,26 +605,9 @@ export default function AiConfigDialog({
                                   className={styles.input}
                                   value={m.model}
                                   onChange={e => updateModel(m.id, 'model', e.target.value)}
-                                  placeholder="gpt-4o-mini"
+                                  placeholder="API 模型名称"
                                 />
                               </div>
-                            </div>
-                            <div className={styles.formGroup}>
-                              <label className={styles.label}>
-                                Temperature
-                                <span className={styles.helpIcon} title="控制 AI 输出的随机性。值越低回答越确定；值越高越发散。留空使用供应商默认值。">?</span>
-                              </label>
-                              <input
-                                className={styles.input}
-                                type="number"
-                                min={0}
-                                max={2}
-                                step={0.1}
-                                value={m.temperature ?? ''}
-                                onChange={e => updateModel(m.id, 'temperature', e.target.value === '' ? undefined : Number(e.target.value))}
-                                placeholder={`默认 ${editing.temperature ?? 0.3}`}
-                                style={{ width: 120 }}
-                              />
                             </div>
 
                             {/* ─── 自定义参数 ─── */}
