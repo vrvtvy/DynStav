@@ -168,10 +168,12 @@ src/
 
 ## 📂 数据存放位置
 
-| 内容         | 路径                      |
-| ------------ | ------------------------- |
-| 配置文件     | `%USERPROFILE%\.dynstav\` |
-| 数据库与日志 | `%LOCALAPPDATA%\DynStav\` |
+| 内容         | 路径                              |
+| ------------ | --------------------------------- |
+| 配置文件     | `%USERPROFILE%\.dynstav\`         |
+| 数据库与日志 | `%LOCALAPPDATA%\DynStav\`         |
+| 缓存         | `%APPDATA%\dynstav\`              |
+| 更新         | `%LOCALAPPDATA%\dynstav-updater\` |
 
 > 卸载时卸载程序会询问是否一并删除这些数据。
 
