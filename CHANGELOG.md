@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-22
+
 ### Added
 - **AI 模型预设供应商**：
   - 新增 13 家预设 AI 服务商（DeepSeek、Moonshot、通义千问/百炼、智谱AI、火山引擎/豆包、MiniMax、小米 MiMo、硅基流动、OpenAI、Anthropic、Google Gemini、Grok(xAI)、OpenRouter），一键添加即可使用。
@@ -67,5 +69,6 @@
 - NSIS 安装程序，卸载时可选清理用户数据目录。
 - 集成 electron-log 统一日志系统。
 
-[Unreleased]: https://github.com/vrvtvy/dynstav/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/vrvtvy/dynstav/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/vrvtvy/dynstav/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/vrvtvy/dynstav/releases/tag/v1.0.0
