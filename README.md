@@ -95,7 +95,7 @@ pnpm dev
 
 ```bash
 pnpm install      # 安装依赖
-pnpm dev          # 开发模式（构建 + 启动）
+pnpm dev          # 开发模式（HMR 热更新）
 pnpm build        # 仅构建（类型检查 + 编译）
 pnpm dist         # 打包 Windows 安装程序（输出到 release/）
 ```
@@ -129,7 +129,7 @@ src/
 | 框架     | Electron 33、React 18、TypeScript 5         |
 | 构建     | electron-vite、electron-builder             |
 | 可视化   | ECharts 5、echarts-for-react                |
-| AI 对话  | OpenAI / Azure / Anthropic / 自定义兼容接口 |
+| AI 对话  | Chat Completions / Responses / Anthropic / 自定义兼容接口 |
 | 数据存储 | sql.js（SQLite 的 WASM 版本）               |
 | 日志     | electron-log                                |
 | 编码处理 | iconv-lite（解析 GB18030 配置）             |
