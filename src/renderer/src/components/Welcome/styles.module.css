@@ -103,13 +103,13 @@
 .subtitle {
   font-size: 14px;
   color: var(--text-muted);
-  margin: 0 0 36px;
+  margin: 0 0 16px;
 }
 
 .stepTitle {
   font-size: 16px;
   font-weight: 600;
-  margin: 0 0 8px;
+  margin: 0 0 20px;
   color: var(--text-primary);
 }
 
@@ -306,7 +306,7 @@
   display: flex;
   gap: 16px;
   justify-content: center;
-  margin-bottom: 32px;
+  margin-bottom: 48px;
 }
 
 .themeCard {
