@@ -31,7 +31,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 打包安装程序
-        run: pnpm dist
+        run: npx electron-vite build && npx electron-builder --win --publish never
 
       - name: 发布到 GitHub Releases
         uses: softprops/action-gh-release@v2
