@@ -31,7 +31,7 @@
       "resources/icon.png"
     ],
     "win": {
-      "target": "nsis",
+      "target": ["nsis", "zip"],
       "icon": "resources/icon.ico"
     },
     "nsis": {
