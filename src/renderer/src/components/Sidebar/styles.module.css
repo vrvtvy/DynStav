@@ -132,6 +132,11 @@
   color: rgba(255,255,255,0.7);
 }
 
+.blockItemActive .up,
+.blockItemActive .down {
+  color: #ffffff !important;
+}
+
 .dragging {
   opacity: 0.5;
   border: 1px dashed var(--accent-primary);

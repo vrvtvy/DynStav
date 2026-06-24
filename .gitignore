@@ -37,6 +37,7 @@ devdoc/
 *~
 
 # ===== AI 辅助工具目录 =====
+.codebuddy/
 .codegraph/
 .qoder-cn/
 .qoderworkcn/
