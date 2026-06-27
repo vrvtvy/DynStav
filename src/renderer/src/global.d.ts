@@ -29,6 +29,7 @@ declare global {
       checkMarketOpen: () => Promise<boolean>
       getAppDirs: () => Promise<{ label: string; path: string }[]>
       getLatestDate: () => Promise<string>
+      getTradingDateRange: (count: number) => Promise<{ startDate: string; endDate: string }>
       onSyncDone: (callback: () => void) => () => void
       updateBlockSort: (codes: string[]) => Promise<void>
       getConfig: () => Promise<AppConfig>

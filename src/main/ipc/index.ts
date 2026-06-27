@@ -4,7 +4,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import log from 'electron-log/main'
 import { parseConfig } from '../config-parser'
-import { getLastTradingDay, isMarketCurrentlyOpen } from '../trading-calendar'
+import { getLastTradingDay, isMarketCurrentlyOpen, getTradingDateRange } from '../trading-calendar'
 import { fetchStockQuotes } from '../data-fetcher'
 import { analyzeBlocks } from '../analyzer'
 import { getRepository } from '../db'
@@ -65,8 +65,12 @@ export function registerIpcHandlers(): void {
     return getRepository().getBlocks()
   })
 
-  safeHandle(IPC_CHANNELS.QUERY_STATS, (_event, params) => {
-    const startDate = params.startDate || getDefaultStartDate()
+  safeHandle(IPC_CHANNELS.QUERY_STATS, async (_event, params) => {
+    let startDate = params.startDate
+    if (!startDate) {
+      const range = await getTradingDateRange(7)
+      startDate = range.startDate
+    }
     const endDate = params.endDate || getRepository().getLatestDate() || getTodayStr()
     const blockCode = params.blockCode
     log.debug('QUERY_STATS → queryStats params:', { startDate, endDate, blockCode })
@@ -105,6 +109,10 @@ export function registerIpcHandlers(): void {
 
   safeHandle(IPC_CHANNELS.GET_LATEST_DATE, () => {
     return getRepository().getLatestDate()
+  })
+
+  safeHandle(IPC_CHANNELS.GET_TRADING_DATE_RANGE, async (_event, count: number) => {
+    return getTradingDateRange(count)
   })
 
   safeHandle(IPC_CHANNELS.UPDATE_BLOCK_SORT, (_event, codes: string[]) => {
@@ -333,15 +341,6 @@ export async function syncAllData(iniPath?: string, force = false): Promise<void
 
 export function getTodayStr(): string {
   const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function getDefaultStartDate(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 7)
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')

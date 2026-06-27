@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ThemeType, FontSizeLevel, QueryParams, BlockDailyStats, BlockInfo } from './types'
-import { getTradingDateRange } from './utils'
 import Layout from './components/Layout'
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
@@ -153,7 +152,7 @@ export default function App() {
         ])
         if (freshBlocks.length > 0 && freshDate) {
           const code = freshBlocks[0].code
-          const { startDate, endDate } = getTradingDateRange(7, freshDate)
+          const { startDate, endDate } = await window.electronAPI.getTradingDateRange(7)
           handleSearch({ startDate, endDate, blockCode: code })
         }
       }
@@ -264,7 +263,6 @@ export default function App() {
             onSearch={handleSearch}
             onBlockClick={handleBlockClick}
             onUpdateSort={handleUpdateSort}
-            latestDate={latestDate}
           />
         }
         main={

@@ -5,7 +5,10 @@ export function toDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/** 给定交易日数，计算起止日期（跳过周末，可选传入最新交易日替代 today） */
+/**
+ * @deprecated 仅跳过周末，不跳过节假日，已改用主进程 IPC getTradingDateRange()
+ * 保留作为离线兜底，请勿再作为主要路径使用。
+ */
 export function getTradingDateRange(tradingDays: number, latestDate?: string): { startDate: string; endDate: string } {
   const end = latestDate ? new Date(latestDate) : new Date()
   while (end.getDay() === 0 || end.getDay() === 6) {

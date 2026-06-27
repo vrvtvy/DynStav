@@ -227,6 +227,7 @@ export const IPC_CHANNELS = {
   SYNC_PROGRESS: 'sync-progress',
   SYNC_DONE: 'sync-done',
   GET_LATEST_DATE: 'get-latest-date',
+  GET_TRADING_DATE_RANGE: 'get-trading-date-range',
   UPDATE_BLOCK_SORT: 'update-block-sort',
   SYNC_BLOCK_META: 'sync-block-meta',
   GET_CONFIG: 'get-config',

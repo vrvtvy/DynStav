@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { BlockInfo, QueryParams } from '../../types'
-import { getTradingDateRange } from '../../utils'
 import styles from './styles.module.css'
 
 interface SidebarProps {
@@ -9,7 +8,6 @@ interface SidebarProps {
   onSearch: (params: QueryParams) => void
   onBlockClick: (blockCode: string) => void
   onUpdateSort?: (codes: string[]) => void
-  latestDate: string
 }
 
 export default function Sidebar({
@@ -17,8 +15,7 @@ export default function Sidebar({
   selectedBlock,
   onSearch,
   onBlockClick,
-  onUpdateSort,
-  latestDate
+  onUpdateSort
 }: SidebarProps) {
   const [blockNameFilter, setBlockNameFilter] = useState('')
   const [dateRange, setDateRange] = useState('7')
@@ -36,9 +33,9 @@ export default function Sidebar({
     ? localBlocks.filter(b => b.name.includes(blockNameFilter))
     : localBlocks
 
-  function doSearch(dateVal?: string) {
+  async function doSearch(dateVal?: string) {
     const val = dateVal ?? dateRange
-    const { startDate, endDate } = getTradingDateRange(parseInt(val), latestDate)
+    const { startDate, endDate } = await window.electronAPI.getTradingDateRange(parseInt(val))
     onSearch({ startDate, endDate, blockCode: selectedBlock || blocks[0]?.code })
   }
 
@@ -64,11 +61,11 @@ export default function Sidebar({
     doSearch()
   }
 
-  function handleReset() {
+  async function handleReset() {
     setBlockNameFilter('')
     setDateRange('7')
     const first = blocks[0]?.code || ''
-    const { startDate, endDate } = getTradingDateRange(7, latestDate)
+    const { startDate, endDate } = await window.electronAPI.getTradingDateRange(7)
     onSearch({ startDate, endDate, blockCode: first })
   }
 

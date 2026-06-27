@@ -58,6 +58,9 @@ const electronAPI = {
   getLatestDate: (): Promise<string> =>
     ipcRenderer.invoke(IPC_CHANNELS.GET_LATEST_DATE),
 
+  getTradingDateRange: (count: number): Promise<{ startDate: string; endDate: string }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GET_TRADING_DATE_RANGE, count),
+
   onSyncDone: (callback: () => void) => {
     ipcRenderer.on(IPC_CHANNELS.SYNC_DONE, callback)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.SYNC_DONE, callback)
