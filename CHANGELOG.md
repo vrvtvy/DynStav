@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-06-27
+
 ### Fixed
 - **交易日范围计算未考虑节假日**：修复查询日期范围仅跳过周末而忽略法定节假日（如端午、春节等）的问题。现已改用腾讯上证指数日 K 接口获取真实交易日列表，天然跳过所有非交易日，确保「最近 N 个交易日」的查询结果始终包含完整的交易日数据。
 - **板块列表鼠标悬浮上后跌幅看不到的问题**：修复板块被鼠标悬浮后，由于跌幅颜色与悬浮后颜色一样导致看不到跌幅的问题。
@@ -73,6 +75,7 @@
 - NSIS 安装程序，卸载时可选清理用户数据目录。
 - 集成 electron-log 统一日志系统。
 
-[Unreleased]: https://github.com/vrvtvy/dynstav/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/vrvtvy/dynstav/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/vrvtvy/dynstav/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/vrvtvy/dynstav/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/vrvtvy/dynstav/releases/tag/v1.0.0
