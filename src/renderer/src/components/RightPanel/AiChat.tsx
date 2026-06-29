@@ -93,10 +93,8 @@ function ProviderLogo({
   }
 
   if (presetIconKey) {
-    // 兼容旧模板名 openai→completion, azure→responses
-    const tplKey = (template === 'openai' ? 'completion' : template === 'azure' ? 'responses' : template) as AiProviderTemplate
-    const color = TEMPLATE_COLORS[tplKey] ?? '#6b7280'
-    const letter = presetLogo || TEMPLATE_LETTERS[tplKey] || '?'
+    const color = TEMPLATE_COLORS[template] ?? '#6b7280'
+    const letter = presetLogo || TEMPLATE_LETTERS[template] || '?'
     const r = size / 2 - 1
     return (
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>
@@ -458,6 +456,19 @@ export default function AiChat({
     setThinkingExpanded({})
   }
 
+  /** 重试失败的 AI 请求：找到失败消息之前的最后一条用户消息并重新发送。 */
+  function handleRetry(failedMsgId: string) {
+    const idx = messages.findIndex(m => m.id === failedMsgId)
+    if (idx === -1) return
+    // 向前查找最近的一条用户消息
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        send(messages[i].content)
+        return
+      }
+    }
+  }
+
   function handleReanalyze() {
     const lastUser = [...messages].reverse().find(m => m.role === 'user')
     const prompt = lastUser?.content || `请综合分析「${blockName}」板块的当前走势、资金流向、风险与机会。`
@@ -671,6 +682,11 @@ export default function AiChat({
                         title="复制"
                       >📋</button>
                     </>
+                  )}
+                  {m.role === 'assistant' && !m.streaming && m.content && m.error && (
+                    <button className={styles.retryBtn} onClick={() => handleRetry(m.id)}>
+                      🔄 重新发送
+                    </button>
                   )}
                 </div>
               </div>

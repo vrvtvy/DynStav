@@ -4,11 +4,15 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({
+      exclude: ['ai', '@ai-sdk/openai', '@ai-sdk/anthropic', '@ai-sdk/google', 'zod']
+    })],
     build: { sourcemap: true }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({
+      exclude: ['ai', '@ai-sdk/openai', '@ai-sdk/anthropic', '@ai-sdk/google', 'zod']
+    })],
     build: { sourcemap: true }
   },
   renderer: {

@@ -303,6 +303,28 @@
   color: var(--text-primary);
 }
 
+/* ─── 重试按钮（错误消息时显示） ─── */
+.retryBtn {
+  display: block;
+  width: 100%;
+  margin-top: var(--spacing-sm);
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  text-align: center;
+  transition: background var(--transition-speed), border-color var(--transition-speed);
+}
+
+.retryBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
 .disclaimer {
   margin-top: var(--spacing-sm);
   padding-top: var(--spacing-xs);

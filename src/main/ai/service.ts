@@ -1,24 +1,27 @@
 import { net } from 'electron'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import log from 'electron-log/main'
 import {
   AiProviderConfig,
   AiProviderTemplate,
   AiModelConfig,
   AiChatRequest,
-  AiChatChunk,
-  ChatMessage
+  AiChatChunk
 } from '../../renderer/src/types'
-import { getAdapter } from './adapters'
-import { injectContext, ProviderAdapter } from './types'
+import { injectContext } from './types'
+import { createSdkModel } from './sdk-providers'
 import { mergePresets } from './presets'
+import { getConfigPath } from '../paths'
+import { safeStorage } from 'electron'
+import { streamText, generateText, APICallError, NoSuchModelError } from 'ai'
 
 /**
- * AI 服务层。所有对外的（HTTP、配置持久化）都在主进程完成，
+ * AI 服务层。使用 Vercel AI SDK 处理所有 AI 请求，
  * 渲染层只通过 IPC 调用，密钥不暴露到渲染进程的持久存储。
  */
 
-/** 默认超时 15s（需求 §3.3）。 */
-const DEFAULT_TIMEOUT_MS = 15000
+/** 默认超时 60s（Vercel AI SDK 底层网络超时可较长）。 */
+const DEFAULT_TIMEOUT_MS = 60000
 
 /** 进行中的请求 AbortController，用于取消。 */
 const activeRequests = new Map<string, AbortController>()
@@ -51,9 +54,8 @@ function resolveActiveModel(provider: AiProviderConfig, activeModelId?: string):
 }
 
 /**
- * 用 Electron 的 net 模块发起流式请求，逐 chunk 回调。
- * 选择 net 而非 Node fetch：net 走 Chromium 网络栈，
- * 自动遵循系统代理、证书校验，且支持可靠的中途取消。
+ * 使用 Vercel AI SDK 发起流式聊天请求，逐 chunk 回调。
+ * 底层自动处理 SSE 解析、认证头、流式取消等。
  */
 export async function streamChat(
   request: AiChatRequest,
@@ -70,16 +72,16 @@ export async function streamChat(
   }
 
   const provider = resolveActiveModel(rawProvider, request.activeModelId)
-  const adapter: ProviderAdapter = getAdapter(provider)
-  const messages: ChatMessage[] = injectContext(request.messages, request.context)
-  const spec = adapter.buildRequest(provider, messages)
+  const sdkModel = createSdkModel(provider)
 
-  // 关键调试信息：实际发往大模型的 URL / 模板 / 模型 / 消息（含注入后的 system 提示词）。
-  // 密钥只在头部存在，输出前做掩码；消息体完整打印，方便核对最终 prompt。
-  log.debug('[AI] 请求准备: requestId=%s template=%s model=%s url=%s timeout=%dms',
-    requestId, provider.template, provider.model, spec.url, provider.timeoutMs || DEFAULT_TIMEOUT_MS)
-  log.debug('[AI] 请求头(掩码后): %s', JSON.stringify(maskAuthHeaders(spec.headers)))
-  log.debug('[AI] 最终发送的消息体(prompt):\n%s', JSON.stringify(messages, null, 2))
+  // 注入板块上下文，分离 system prompt 和对话消息
+  const injectedMessages = injectContext(request.messages, request.context)
+  const system = injectedMessages.find(m => m.role === 'system')?.content
+  const messages = injectedMessages.filter(m => m.role !== 'system') as Array<{ role: 'user' | 'assistant'; content: string }>
+
+  log.debug('[AI] 请求准备: requestId=%s template=%s model=%s timeout=%dms',
+    requestId, provider.template, provider.model, provider.timeoutMs || DEFAULT_TIMEOUT_MS)
+  log.debug('[AI] 最终发送的消息数: system=%s messages=%d', system ? '有' : '无', messages.length)
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
@@ -87,107 +89,66 @@ export async function streamChat(
 
   return new Promise<void>((resolve) => {
     let resolved = false
-    let buffer = ''
-    let receivedBytes = 0
-    let deltaCount = 0
 
     const finish = (error?: string) => {
       if (resolved) return
       resolved = true
       activeRequests.delete(requestId)
-      log.debug('[AI] streamChat 结束: requestId=%s 收到字节数=%d 解析出 delta 段数=%d error=%s',
-        requestId, receivedBytes, deltaCount, error || '无')
+      log.debug('[AI] streamChat 结束: requestId=%s error=%s', requestId, error || '无')
       onChunk({ delta: '', done: true, error })
       resolve()
     }
 
-    const timer = setTimeout(() => {
-      try { controller.abort() } catch { /* noop */ }
-      log.warn('[AI] 请求超时: requestId=%s timeout=%dms 已收字节=%d', requestId, timeoutMs, receivedBytes)
-      finish('请求超时，请检查网络或调整超时设置。')
-    }, timeoutMs)
+      // 用 Vercel AI SDK 的 streamText 发起流式请求。
+      // SDK 内置 maxRetries=2 可自动重试临时性错误（429/5xx），
+      // 不再使用自定义 setTimeout 做超时——SDK 的 timeout 参数
+      // 作用于每次尝试，不会与内部重试机制冲突。
+      ; (async () => {
+        try {
+          const result = streamText({
+            model: sdkModel,
+            system,
+            messages,
+            temperature: provider.temperature ?? 0.3,
+            maxOutputTokens: 4096,
+            abortSignal: controller.signal,
+            maxRetries: 2,
+            timeout: timeoutMs,
+            onError: ({ error }) => {
+              log.warn('[AI] streamText 自动重试: requestId=%s err=%s',
+                requestId, error instanceof Error ? error.message : String(error))
+            },
+            onChunk: ({ chunk }) => {
+              if (resolved || controller.signal.aborted) return
+              if (chunk.type === 'text-delta') {
+                onChunk({ delta: chunk.text, done: false })
+              } else if (chunk.type === 'reasoning-delta') {
+                onChunk({ delta: '', thinking: chunk.text, done: false })
+              }
+            },
+          })
 
-    const req = net.request({
-      method: 'POST',
-      url: spec.url
-    })
-    for (const [k, v] of Object.entries(spec.headers)) {
-      req.setHeader(k, String(v))
-    }
+          await result.text
+          finish()
+        } catch (e: any) {
+          if (resolved) return  // 取消场景下不覆盖 finish 已发出的错误
 
-    req.on('response', (response) => {
-      const status = response.statusCode
-      log.debug('[AI] 收到响应头: requestId=%s HTTP %d', requestId, status)
-      clearTimeout(timer)
-      if (status >= 400) {
-        // 收集错误体以便提示
-        let errBody = ''
-        response.on('data', (d) => { errBody += d.toString('utf8') })
-        response.on('end', () => {
-          const msg = `AI 接口返回错误（HTTP ${status}）：${truncate(errBody, 500)}`
-          log.warn('[AI] HTTP error: requestId=%s status=%d body=%s', requestId, status, errBody)
-          finish(msg)
-        })
-        return
-      }
-
-      response.on('data', (chunk) => {
-        receivedBytes += chunk.length
-        buffer += chunk.toString('utf8')
-        // SSE 以空行分隔事件，行内以 \n 结尾
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-        for (const raw of lines) {
-          const line = raw.replace(/\r$/, '')
-          if (!line) continue
-          try {
-            const parsed = adapter.parseDelta(line)
-            if (parsed === null) {
-              log.debug('[AI] 收到结束信号: requestId=%s', requestId)
-              // 结束信号
-              return finish()
-            }
-            if (parsed.delta || parsed.thinking) {
-              deltaCount++
-              onChunk({ delta: parsed.delta, thinking: parsed.thinking, done: false })
-            }
-          } catch (e) {
-            log.warn('[AI] parse delta failed: requestId=%s err=%s line=%s', requestId, e, line)
+          if (e instanceof APICallError) {
+            const statusInfo = e.statusCode ? `（HTTP ${e.statusCode}）` : ''
+            log.warn('[AI] API 调用错误: requestId=%s status=%s err=%s', requestId, e.statusCode, e.message)
+            finish(`AI 接口错误${statusInfo}：${truncate(e.message, 300)}`)
+          } else if (e instanceof NoSuchModelError) {
+            finish(`模型不可用：${e.message}`)
+          } else if (e?.name === 'AbortError') {
+            finish('请求已取消。')
+          } else if (e?.name === 'TimeoutError') {
+            finish('请求超时，请检查网络或调整超时设置。')
+          } else {
+            log.warn('[AI] 流式请求异常: requestId=%s err=%s', requestId, e?.message || e)
+            finish(`请求失败：${truncate(e?.message || String(e), 500)}`)
           }
         }
-      })
-      response.on('end', () => {
-        log.debug('[AI] response end: requestId=%s 剩余未解析 buffer 长度=%d', requestId, buffer.length)
-        finish()
-      })
-      response.on('error', (e) => {
-        log.warn('[AI] response error: requestId=%s err=%s', requestId, e.message)
-        finish(`网络错误：${e.message}`)
-      })
-    })
-
-    req.on('error', (e) => {
-      clearTimeout(timer)
-      log.warn('[AI] request error: requestId=%s err=%s', requestId, e.message)
-      finish(`请求失败：${e.message}`)
-    })
-
-    // 取消
-    controller.signal.addEventListener('abort', () => {
-      try { req.abort() } catch { /* noop */ }
-      log.debug('[AI] 请求被取消: requestId=%s', requestId)
-      finish('请求已取消。')
-    })
-
-    try {
-      req.write(spec.body)
-      req.end()
-      log.debug('[AI] 请求已发出: requestId=%s body 长度=%d', requestId, spec.body.length)
-    } catch (e: any) {
-      clearTimeout(timer)
-      log.error('[AI] 请求发送异常: requestId=%s err=%s', requestId, e?.message || e)
-      finish(`请求发送失败：${e?.message || e}`)
-    }
+      })()
   })
 }
 
@@ -199,123 +160,48 @@ export function cancelChat(requestId: string): void {
   }
 }
 
-/** 非流式测试一次连通性（发一句话），返回首段文本或错误。 */
+/** 使用 Vercel AI SDK 非流式测试连接性（发一句话），返回首段文本或错误。 */
 export async function testProvider(provider: AiProviderConfig): Promise<{ ok: boolean; message: string }> {
-  log.debug('[AI] testProvider 开始: name=%s template=%s model=%s url=%s',
-    provider.name, provider.template, provider.model, provider.baseUrl)
-  return new Promise((resolve) => {
-    const adapter: ProviderAdapter = getAdapter(provider)
-    const spec = adapter.buildRequest(provider, [{ role: 'user', content: '你好，请回复"连接正常"。' }])
-    log.debug('[AI] testProvider 请求: url=%s headers(掩码)=%s body=%s',
-      spec.url, JSON.stringify(maskAuthHeaders(spec.headers)), spec.body)
-    const controller = new AbortController()
-    const timeoutMs = provider.timeoutMs && provider.timeoutMs > 0 ? provider.timeoutMs : DEFAULT_TIMEOUT_MS
+  log.debug('[AI] testProvider 开始: name=%s template=%s model=%s', provider.name, provider.template, provider.model)
+  try {
+    const sdkModel = createSdkModel(provider)
+    // resolveActiveModel 确保 model 字段正确
+    const resolved = resolveActiveModel(provider)
+    const model = createSdkModel(resolved)
 
-    let collected = ''
-    let buffer = ''
-    let done = false
-
-    const timer = setTimeout(() => {
-      try { controller.abort() } catch { /* noop */ }
-      if (!done) {
-        log.warn('[AI] testProvider 超时: name=%s timeout=%dms', provider.name, timeoutMs)
-        done = true; resolve({ ok: false, message: '请求超时。' })
-      }
-    }, timeoutMs)
-
-    const finish = (ok: boolean, msg: string) => {
-      if (done) return
-      done = true
-      clearTimeout(timer)
-      log.debug('[AI] testProvider 完成: name=%s ok=%s msg=%s', provider.name, ok, truncate(msg, 200))
-      resolve({ ok, message: msg })
-    }
-
-    const req = net.request({ method: 'POST', url: spec.url })
-    for (const [k, v] of Object.entries(spec.headers)) {
-      req.setHeader(k, String(v))
-    }
-
-    req.on('response', (response) => {
-      const status = response.statusCode
-      log.debug('[AI] testProvider 收到响应头: HTTP %d', status)
-      if (status >= 400) {
-        let body = ''
-        response.on('data', (d) => { body += d.toString('utf8') })
-        response.on('end', () => {
-          log.warn('[AI] testProvider HTTP error: status=%d body=%s', status, body)
-          finish(false, `HTTP ${status}：${truncate(body, 300)}`)
-        })
-        return
-      }
-      response.on('data', (chunk) => {
-        buffer += chunk.toString('utf8')
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-        for (const raw of lines) {
-          const line = raw.replace(/\r$/, '')
-          if (!line) continue
-          try {
-            const parsed = adapter.parseDelta(line)
-            if (parsed === null) { finish(true, collected || '连接成功。'); return }
-            if (parsed?.delta) collected += parsed.delta
-          } catch (e) {
-            log.warn('[AI] testProvider parse delta failed: %s line=%s', e, line)
-          }
-        }
-      })
-      response.on('end', () => finish(true, collected || '连接成功（无内容返回）。'))
-      response.on('error', (e) => {
-        log.warn('[AI] testProvider response error: %s', e.message)
-        finish(false, `网络错误：${e.message}`)
-      })
+    const result = await generateText({
+      model,
+      messages: [{ role: 'user', content: '你好，请回复"连接正常"。' }],
+      maxOutputTokens: 100,
+      abortSignal: AbortSignal.timeout(provider.timeoutMs || 30000),
     })
-    req.on('error', (e) => {
-      log.warn('[AI] testProvider request error: %s', e.message)
-      finish(false, `请求失败：${e.message}`)
-    })
-    controller.signal.addEventListener('abort', () => finish(false, '已取消'))
 
-    try { req.write(spec.body); req.end() }
-    catch (e: any) {
-      log.error('[AI] testProvider 发送异常: %s', e?.message || e)
-      finish(false, `请求发送失败：${e?.message || e}`)
+    const reply = result.text?.trim() || '连接成功（无内容返回）。'
+    log.debug('[AI] testProvider 成功: name=%s reply=%s', provider.name, truncate(reply, 100))
+    return { ok: true, message: reply }
+  } catch (e: any) {
+    log.warn('[AI] testProvider 失败: name=%s err=%s', provider.name, e?.message || e)
+    if (e instanceof APICallError) {
+      return { ok: false, message: `API 错误（HTTP ${e.statusCode || '?'}）：${e.message}` }
     }
-  })
+    if (e instanceof NoSuchModelError) {
+      return { ok: false, message: `模型不可用：${e.message}` }
+    }
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
+      return { ok: false, message: '请求超时。' }
+    }
+    return { ok: false, message: `连接失败：${truncate(e?.message || String(e), 300)}` }
+  }
 }
 
 function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n) + '...' : s
 }
 
-/**
- * 对请求头做掩码：保留 key 名，仅对疑似承载凭据的字段做脱敏，
- * 用于日志输出。不修改原对象。
- */
-function maskAuthHeaders(headers: Record<string, string>): Record<string, string> {
-  const masked: Record<string, string> = {}
-  const sensitiveKeys = ['authorization', 'api-key', 'x-api-key', 'cookie', 'token']
-  for (const [k, v] of Object.entries(headers)) {
-    if (sensitiveKeys.includes(k.toLowerCase())) {
-      // 保留前缀(如 "Bearer ")便于看到鉴权方式，密钥部分只露前后各 4 字符
-      const head = v.length > 12 ? v.slice(0, 4) : ''
-      const tail = v.length > 12 ? v.slice(-4) : ''
-      masked[k] = v.length > 12 ? `${head}***${tail}(${v.length}字符)` : `***(${v.length}字符)`
-    } else {
-      masked[k] = v
-    }
-  }
-  return masked
-}
-
 /* ───────────────────────── 配置持久化（含简易加密） ─────────────────────────
  * Electron 内置 safeStorage 在 Windows 走 DPAPI，用户级加密，符合需求 §4.3
  * "敏感信息加密存储"。存储目录 .dynstav，与主配置同处。
  */
-
-import { readFileSync, writeFileSync, existsSync } from 'fs'
-import { getConfigPath } from '../paths'
-import { safeStorage } from 'electron'
 
 const AI_FILE = 'ai-config.json'
 

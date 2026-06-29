@@ -1,34 +1,4 @@
-import { AiProviderConfig, ChatMessage, BlockContext } from '../../renderer/src/types'
-
-/**
- * AI 适配层内部请求模型：模板适配器把 AiProviderConfig + messages
- * 转换为统一的 HTTP 请求描述，由上层 fetch 发出。
- */
-export interface AdapterRequest {
-  url: string
-  method: 'POST'
-  headers: Record<string, string>
-  /** 已序列化为字符串的请求体（含模型、温度、流式标记等） */
-  body: string
-}
-
-/** parseDelta 解析结果：包含正文增量和可选的思考过程增量。 */
-export interface ParsedDelta {
-  delta: string
-  /** 模型思考/推理过程增量（DeepSeek reasoning_content、Anthropic thinking 等） */
-  thinking?: string
-}
-
-/** 模板适配器接口：新增供应商只需实现 buildRequest / parseDelta。 */
-export interface ProviderAdapter {
-  /** 构造 HTTP 请求（含流式标记） */
-  buildRequest(config: AiProviderConfig, messages: ChatMessage[]): AdapterRequest
-  /**
-   * 解析 SSE data 行，返回内容增量（一条 SSE 可能拆为多段文本）。
-   * 返回 null 表示该行代表结束信号。
-   */
-  parseDelta(line: string): ParsedDelta | null
-}
+import { ChatMessage, BlockContext } from '../../renderer/src/types'
 
 /**
  * 把板块上下文渲染为 system 提示词。固定置于消息列表最前，
