@@ -215,7 +215,7 @@ export function mergePresets(
       path: preset.path,
       model: '',
       apiKey: '',
-      timeoutMs: 30000,
+      timeoutMs: 300000,
       temperature: 0.3,
       models: [],
       isPreset: true,

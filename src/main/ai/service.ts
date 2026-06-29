@@ -82,10 +82,14 @@ export async function streamChat(
   log.debug('[AI] 请求准备: requestId=%s template=%s model=%s timeout=%dms',
     requestId, provider.template, provider.model, provider.timeoutMs || DEFAULT_TIMEOUT_MS)
   log.debug('[AI] 最终发送的消息数: system=%s messages=%d', system ? '有' : '无', messages.length)
+  log.debug('[AI] 发送 system 提示(截取前200字): requestId=%s\n%s', requestId, system ? truncate(system, 200) : '无')
+  const msgPreview = messages.map(m => `  ${m.role}: ${truncate(m.content, 120)}`).join('\n')
+  log.debug('[AI] 发送对话消息: requestId=%s\n%s', requestId, msgPreview)
 
   const controller = new AbortController()
   activeRequests.set(requestId, controller)
-  const timeoutMs = provider.timeoutMs && provider.timeoutMs > 0 ? provider.timeoutMs : DEFAULT_TIMEOUT_MS
+  // DEFAULT_TIMEOUT_MS 作为最小超时下限，用户配置的 timeoutMs 只能上调不能下调
+  const timeoutMs = Math.max(provider.timeoutMs || 0, DEFAULT_TIMEOUT_MS)
 
   return new Promise<void>((resolve) => {
     let resolved = false
@@ -103,6 +107,10 @@ export async function streamChat(
       // SDK 内置 maxRetries=2 可自动重试临时性错误（429/5xx），
       // 不再使用自定义 setTimeout 做超时——SDK 的 timeout 参数
       // 作用于每次尝试，不会与内部重试机制冲突。
+      // 累积回复文本，用于完成后打印调试日志
+      let accumulatedResponse = ''
+      let accumulatedThinking = ''
+
       ; (async () => {
         try {
           const result = streamText({
@@ -121,17 +129,33 @@ export async function streamChat(
             onChunk: ({ chunk }) => {
               if (resolved || controller.signal.aborted) return
               if (chunk.type === 'text-delta') {
+                accumulatedResponse += chunk.text
                 onChunk({ delta: chunk.text, done: false })
               } else if (chunk.type === 'reasoning-delta') {
+                accumulatedThinking += chunk.text
                 onChunk({ delta: '', thinking: chunk.text, done: false })
               }
             },
           })
 
           await result.text
+          log.debug('[AI] streamChat 回复完成: requestId=%s 回复长度=%d 思考长度=%d',
+            requestId, accumulatedResponse.length, accumulatedThinking.length)
+          log.debug('[AI] streamChat 回复内容(截取前500字): requestId=%s\n%s',
+            requestId, truncate(accumulatedResponse, 500))
+          if (accumulatedThinking) {
+            log.debug('[AI] streamChat 思考过程(截取前300字): requestId=%s\n%s',
+              requestId, truncate(accumulatedThinking, 300))
+          }
           finish()
         } catch (e: any) {
           if (resolved) return  // 取消场景下不覆盖 finish 已发出的错误
+
+          // 出错时也打印已累积的内容（如有），便于诊断
+          if (accumulatedResponse || accumulatedThinking) {
+            log.debug('[AI] streamChat 异常时已累积: requestId=%s 回复=%d字 思考=%d字',
+              requestId, accumulatedResponse.length, accumulatedThinking.length)
+          }
 
           if (e instanceof APICallError) {
             const statusInfo = e.statusCode ? `（HTTP ${e.statusCode}）` : ''
@@ -288,7 +312,7 @@ export async function fetchModels(provider: AiProviderConfig): Promise<string[]>
     const timeout = setTimeout(() => {
       req.abort()
       reject(new Error('请求超时'))
-    }, provider.timeoutMs || 15000)
+    }, provider.timeoutMs || 300000)
 
     // 认证头
     req.setHeader('Authorization', `Bearer ${provider.apiKey}`)

@@ -65,7 +65,7 @@ const DEFAULT_PROVIDER: Omit<AiProviderConfig, 'id'> = {
   model: TEMPLATE_PRESETS.completion.model,
   path: TEMPLATE_PRESETS.completion.path,
   apiKey: '',
-  timeoutMs: 15000,
+  timeoutMs: 300000,
   temperature: 0.3,
   headers: {},
   models: []
