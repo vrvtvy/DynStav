@@ -20,8 +20,8 @@ import { streamText, generateText, APICallError, NoSuchModelError } from 'ai'
  * 渲染层只通过 IPC 调用，密钥不暴露到渲染进程的持久存储。
  */
 
-/** 默认超时 60s（Vercel AI SDK 底层网络超时可较长）。 */
-const DEFAULT_TIMEOUT_MS = 60000
+/** 默认超时 5 分钟（长思考模型如 DeepSeek R1 / Claude Opus 需要更长时间）。 */
+const DEFAULT_TIMEOUT_MS = 300000
 
 /** 进行中的请求 AbortController，用于取消。 */
 const activeRequests = new Map<string, AbortController>()
