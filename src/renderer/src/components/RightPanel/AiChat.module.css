@@ -364,6 +364,10 @@
   margin-bottom: var(--spacing-sm);
   border-bottom: 1px dashed var(--border-color);
   padding-bottom: var(--spacing-sm);
+  /* P4: 折叠状态下左侧彩色装饰条 */
+  border-left: 3px solid var(--accent-primary);
+  padding-left: var(--spacing-sm);
+  border-radius: 0 4px 4px 0;
 }
 
 .thinkingToggle {
@@ -398,6 +402,28 @@
   font-weight: 500;
 }
 
+/* P0: 折叠时显示的思考摘要 */
+.thinkingSummary {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+  font-weight: 400;
+  opacity: 0.6;
+  font-size: 10px;
+  direction: rtl;
+  text-align: right;
+}
+
+.thinkingStats {
+  margin-left: auto;
+  font-weight: 400;
+  opacity: 0.5;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
 .thinkingPulse {
   width: 6px;
   height: 6px;
@@ -410,6 +436,19 @@
 @keyframes pulse {
   0%, 100% { opacity: 0.3; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* P1: 展开/折叠过渡动画 */
+.thinkingContentWrapper {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.thinkingContentWrapperOpen {
+  max-height: 320px;
+  opacity: 1;
 }
 
 .thinkingContent {
@@ -454,6 +493,31 @@
   padding: 0;
   background: transparent;
   font-size: 10px;
+}
+
+/* P2: 思考内容复制按钮 */
+.thinkingCopyBtn {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity var(--transition-speed);
+}
+
+.thinkingContent:hover .thinkingCopyBtn {
+  opacity: 1;
+}
+
+.thinkingCopyBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* ─── 输入区 ─── */

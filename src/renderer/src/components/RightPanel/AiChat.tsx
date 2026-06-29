@@ -309,13 +309,14 @@ export default function AiChat({
     }
   }, [messages])
 
-  // 思考区块内部自动滚动到底部
+  // 思考区块内部自动滚动到底部（仅在思考流式更新时触发）
+  const thinkingStreamingCount = messages.filter(m => m.thinkingStreaming).length
   useEffect(() => {
     const el = thinkingScrollRef.current
     if (el) {
       el.scrollTop = el.scrollHeight
     }
-  }, [messages])
+  }, [thinkingStreamingCount])
 
   // 监听 AI_CHAT_STARTED 事件
   useEffect(() => {
@@ -640,11 +641,25 @@ export default function AiChat({
                         <span className={styles.thinkingLabel}>
                           {m.thinkingStreaming ? '思考中…' : '思考过程'}
                         </span>
+                        {/* P0: 折叠时显示字符数 + 首行摘要 */}
+                        {!thinkingExpanded[m.id] && (
+                          <span className={styles.thinkingSummary} title={m.thinkingContent.slice(0, 60)}>
+                            {m.thinkingContent.length > 40
+                              ? m.thinkingContent.slice(0, 40).replace(/\n.*/, '') + '…'
+                              : m.thinkingContent.slice(0, 40)}
+                          </span>
+                        )}
+                        <span className={styles.thinkingStats}>
+                          {m.thinkingContent.length}字
+                        </span>
                         {m.thinkingStreaming && (
                           <span className={styles.thinkingPulse} />
                         )}
                       </button>
-                      {thinkingExpanded[m.id] && (
+                      {/* P1: 过渡动画包装 */}
+                      <div
+                        className={`${styles.thinkingContentWrapper} ${thinkingExpanded[m.id] ? styles.thinkingContentWrapperOpen : ''}`}
+                      >
                         <div
                           className={styles.thinkingContent}
                           ref={m.streaming ? thinkingScrollRef : undefined}
@@ -653,8 +668,16 @@ export default function AiChat({
                             className={styles.thinkingText}
                             dangerouslySetInnerHTML={{ __html: renderMarkdown(m.thinkingContent) }}
                           />
+                          {/* P2: 思考内容复制按钮 */}
+                          {!m.streaming && (
+                            <button
+                              className={styles.thinkingCopyBtn}
+                              onClick={() => navigator.clipboard.writeText(m.thinkingContent || '')}
+                              title="复制思考过程"
+                            >📋</button>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   )}
                   {/* 正在思考但尚无内容时的占位指示 */}
