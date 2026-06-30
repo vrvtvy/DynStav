@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+### Changed
+- **AI 对话底层重写为 Vercel AI SDK**：移除自定义 SSE 解析适配器模式（`adapters.ts`），改用 `ai` 包 `streamText()` / `generateText()` 统一管理流式输出、重试（`maxRetries: 2`）、超时控制。通过 `sdk-providers.ts` 桥接层将 `AiProviderConfig` 映射到 SDK `LanguageModel`，底层 SSE 解析与 delta 合并由 SDK 原生处理。
+- **默认超时从 60s 改为 5 分钟**：解决 DeepSeek R1 / Claude Opus 等长思考模型在复杂分析时单次推理超过 60 秒被中断的问题。
+- **重试机制修复**：移除与 SDK 冲突的自定义 `setTimeout` 重试逻辑，回退到 `streamText({ maxRetries: 2 })`，同时保留渲染层手动「重试」按钮（`handleRetry`）。
+- **ESM 依赖修复**：将 `ai`、`@ai-sdk/*`、`zod` 从 `externalizeDepsPlugin({ exclude: [...] })` 排除，解决 `ERR_REQUIRE_ESM` 构建错误。
+- **思考链（Thinking）UI 优化**：
+  - 流式过程中思考区块自动展开，完成后自动折叠，用户可手动切换。
+  - 思考内容流式更新时自动滚动到底部。
+  - 新增一键复制思考内容按钮。
+  - 消息顶部显示思考耗时与 token 统计摘要。
+  - 思考区块与正文之间增加视觉分隔线。
+
 ## [1.1.1] - 2026-06-27
 
 ### Fixed
