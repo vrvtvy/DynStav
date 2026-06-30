@@ -5,19 +5,33 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.2.0] - 2026-06-30
+
+### Added
+- **Token 感知上下文管理器**（`context-manager.ts`）：滑动窗口 + 按需摘要压缩，超出模型上下文窗口时自动降级。轻量字符级 token 估算器，无外部依赖。
+- **模型能力注册 + 动态学习**（`model-registry.ts`）：上下文窗口四层优先级（用户配置 > 已学习 > 静态注册表 > 兜底 128k）。成功请求保守上调（×1.5），context exceeded 时下调（×0.7）并触发加强压缩重试。学习值持久化到 `ai-config.json`。
+- **Token 用量持久化**：`ChatSessionMessage` 增加 `usage` 字段，DB 新增 `input_tokens` / `output_tokens` / `reasoning_tokens` / `total_tokens` 四列。对话消息底部显示输入/输出/总 token 数，切换板块后保留。
+- **品牌图标系统**：嵌入 14+ 品牌 SVG 图标（24×24 viewBox）。三级 fallback 匹配：模型字段 → 按名称自动检测 → 供应商预设。新增图标：阿里云、OpenCode、豆包、混元、Z.ai。
+- **预设供应商 OpenCode**
+- **Markdown 表格渲染**：用 `marked` 替换自研解析器，支持表格/引用/分隔线/斜体等。
 
 ### Changed
-- **AI 对话底层重写为 Vercel AI SDK**：移除自定义 SSE 解析适配器模式（`adapters.ts`），改用 `ai` 包 `streamText()` / `generateText()` 统一管理流式输出、重试（`maxRetries: 2`）、超时控制。通过 `sdk-providers.ts` 桥接层将 `AiProviderConfig` 映射到 SDK `LanguageModel`，底层 SSE 解析与 delta 合并由 SDK 原生处理。
+- **AI 对话底层重写为 Vercel AI SDK**：移除自定义 SSE 解析适配器模式（`adapters.ts`），改用 `ai` 包 `streamText()` / `generateText()` 统一管理流式输出、重试（`maxRetries: 2`）、超时控制。
+  - `completion` / `custom` 模板改用 `@ai-sdk/openai-compatible`（第三方 API 兼容，正确解析 `delta.reasoning_content`）
+  - `responses` 模板保留 `@ai-sdk/openai`（OpenAI Responses API）
 - **默认超时从 60s 改为 5 分钟**：解决 DeepSeek R1 / Claude Opus 等长思考模型在复杂分析时单次推理超过 60 秒被中断的问题。
-- **重试机制修复**：移除与 SDK 冲突的自定义 `setTimeout` 重试逻辑，回退到 `streamText({ maxRetries: 2 })`，同时保留渲染层手动「重试」按钮（`handleRetry`）。
-- **ESM 依赖修复**：将 `ai`、`@ai-sdk/*`、`zod` 从 `externalizeDepsPlugin({ exclude: [...] })` 排除，解决 `ERR_REQUIRE_ESM` 构建错误。
-- **思考链（Thinking）UI 优化**：
-  - 流式过程中思考区块自动展开，完成后自动折叠，用户可手动切换。
-  - 思考内容流式更新时自动滚动到底部。
-  - 新增一键复制思考内容按钮。
-  - 消息顶部显示思考耗时与 token 统计摘要。
-  - 思考区块与正文之间增加视觉分隔线。
+- **重试机制修复**：移除与 SDK 冲突的自定义重试逻辑，回退到 `streamText({ maxRetries: 2 })`。
+- **预设供应商「通义千问 (百炼)」更名为「阿里云」**，图标改为 AlibabaCloud。
+- **最大输出 token 默认值 65536**：始终传 `max_tokens`，避免部分 API 缺少参数时零输出。
+- **推理强度档位修正**：移除 `none`/`minimal`，新增 `max`，当前有效值：`low`/`medium`/`high`/`xhigh`/`max`。
+- **移除 UI 中超时时间设置**，内部默认 5 分钟。
+- **思考链（Thinking）UI 优化**：流式过程中自动展开，完成后折叠，支持一键复制，显示 token 统计。
+- **ESM 依赖修复**：`externalizeDepsPlugin` 排除列表新增 `@ai-sdk/openai-compatible`。
+
+### Fixed
+- **百炼 deepseek-v4-pro 请求失败**：`@ai-sdk/openai` v4 默认 `/v1/responses`，百炼不支持。改用 `@ai-sdk/openai-compatible` 走 `/v1/chat/completions`。
+- **API 错误被 Zod 噪音淹没**：新增 `extractApiErrorMessage()` 从 `APICallError.responseBody` 还原原始错误。
+- **移除自动注入 `setCacheKey`**：第三方 API 不认该参数，改为用户手动配置 `customParams`。
 
 ## [1.1.1] - 2026-06-27
 
@@ -87,7 +101,7 @@
 - NSIS 安装程序，卸载时可选清理用户数据目录。
 - 集成 electron-log 统一日志系统。
 
-[Unreleased]: https://github.com/vrvtvy/dynstav/compare/v1.1.1...HEAD
+[1.2.0]: https://github.com/vrvtvy/dynstav/compare/v1.1.1...HEAD
 [1.1.1]: https://github.com/vrvtvy/dynstav/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/vrvtvy/dynstav/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/vrvtvy/dynstav/releases/tag/v1.0.0

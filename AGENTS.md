@@ -25,7 +25,8 @@ pnpm run start        # 构建后启动应用
 | 构建      | electron-vite、electron-builder                   |
 | 可视化    | ECharts 5、echarts-for-react                      |
 | AI 对话   | Vercel AI SDK 7（streamText / generateText）      |
-| AI 供应商 | @ai-sdk/openai、@ai-sdk/anthropic、@ai-sdk/google |
+| AI 供应商 | @ai-sdk/openai、@ai-sdk/openai-compatible、@ai-sdk/anthropic、@ai-sdk/google |
+| Markdown  | marked 18                                          |
 | 数据存储  | sql.js（SQLite WASM）                             |
 | 日志      | electron-log                                      |
 | 编码处理  | iconv-lite（解析 GB18030 编码的同花顺配置）       |
@@ -36,10 +37,12 @@ pnpm run start        # 构建后启动应用
 src/
 ├── main/                 # Electron 主进程
 │   ├── ai/               # AI 对话服务（流式聊天、Vercel AI SDK）
-│   │   ├── sdk-providers.ts  #   AiProviderConfig → SDK LanguageModel 桥接
-│   │   ├── presets.ts    #   预设供应商列表（13 家主流 AI 服务商）
-│   │   ├── service.ts    #   流式聊天主逻辑（streamText / generateText）
-│   │   └── types.ts      #   上下文构建工具（buildContextPrompt / injectContext）
+│   │   ├── sdk-providers.ts    #   AiProviderConfig → SDK LanguageModel 桥接
+│   │   ├── context-manager.ts  #   Token 感知上下文管理（滑动窗口 + 摘要压缩）
+│   │   ├── model-registry.ts   #   模型能力注册 + 动态上下文窗口学习
+│   │   ├── presets.ts          #   预设供应商列表（14 家主流 AI 服务商）
+│   │   ├── service.ts          #   流式聊天主逻辑（streamText / generateText）
+│   │   └── types.ts            #   上下文构建工具（buildContextPrompt / injectContext）
 │   ├── analyzer/         # 板块指标计算
 │   ├── config-parser/    # 同花顺 stockblock.ini 解析（GB18030 → UTF-8）
 │   ├── data-fetcher/     # 腾讯行情接口获取 A 股实时行情
@@ -73,15 +76,17 @@ src/
             ├── Sidebar/       # 左侧板块列表（可搜索、可拖拽排序）
             ├── Chart/         # ECharts 多指标趋势图
             ├── RightPanel/    # 右侧 AI 对话面板
-            │   ├── index.tsx         # 容器组件
-            │   ├── AiChat.tsx        # 对话交互组件
-            │   ├── AiConfigDialog.tsx # 供应商/模型配置弹窗
+            │   ├── index.tsx           # 容器组件
+            │   ├── AiChat.tsx          # 对话交互组件（含模型选择器、品牌图标）
+            │   ├── AiConfigDialog.tsx  # 供应商/模型配置弹窗（含 detectModelIconKey）
             │   ├── ChatHistoryList.tsx # 历史对话列表
-            │   └── context.ts        # 对话上下文管理
+            │   └── context.ts          # Markdown 渲染 + 板块上下文构建
             ├── StatusBar/     # 底部状态栏
             ├── TitleBar/      # 自定义标题栏（无边框窗口）
             ├── Welcome/       # 首次引导页
             ├── GuideContent/  # 帮助指南
+            ├── icons/          # 品牌图标（嵌入 SVG 路径，24×24 viewBox）
+            │   └── providerIcons.tsx
             ├── RestoreDialog/ # 数据恢复弹窗
             └── ConfirmDialog/ # 确认弹窗
 ```
@@ -103,13 +108,38 @@ src/
 
 - 底层统一使用 Vercel AI SDK 的 `streamText()`（流式）和 `generateText()`（测试连接）。
 - 供应商桥接在 `src/main/ai/sdk-providers.ts` 中实现：
-  - `createProvider(config) → LanguageModel`：根据 `template` 类型创建对应的 SDK provider：
-    - `completion` / `responses` / `custom` → `createOpenAI({ baseURL, apiKey, headers })`
-    - `anthropic` → `createAnthropic({ baseURL, apiKey })`
+  - 根据 `template` 类型创建对应的 SDK provider：
+    - `completion` / `custom` → `createOpenAICompatible()` — 第三方 OpenAI 兼容 API，走 `/v1/chat/completions`，会正确解析 `delta.reasoning_content`
+    - `responses` → `createOpenAI()` — OpenAI Responses API，走 `/v1/responses`
+    - `anthropic` → `createAnthropic()` — Anthropic Messages API
+  - **切勿用 `@ai-sdk/openai` 的 `provider(modelKey)` 处理第三方 API**：v4 中该方法默认走 `/v1/responses`，第三方（如百炼）不支持，返回 `400 Bad Request`。
   - SDK 原生处理 SSE 解析、delta 合并、重试（`maxRetries: 2`）和超时（`timeout`）。
-- 预设定义在 `src/main/ai/presets.ts` 的 `PRESET_PROVIDERS` 数组中追加。
-- 新增供应商：一般在 `presets.ts` 追加预设即可。若有特殊请求体/响应格式，在 `sdk-providers.ts` 中新增 `template` 分支。
+- 预设定义在 `src/main/ai/presets.ts` 的 `PRESET_PROVIDERS` 数组中追加。每个预设需提供 `presetId`、`name`、`template`、`baseUrl`、`path`、`logo`（1-2 字母）、`iconKey`（对应 `providerIcons.tsx` 中的 SVG 路径）。
 - `src/main/ai/adapters.ts` 已废弃（旧的自定义适配器模式由 SDK 替代）。
+
+#### 上下文管理（ContextManager）
+
+- `src/main/ai/context-manager.ts` 提供 token 感知的上下文管理：
+  - 计算可用预算：`contextWindow - systemTokens - maxOutputTokens - reserve`
+  - 正常情况全量发送，超预算时保留最近 N 条消息，旧消息用 `generateText` 生成摘要作为 system 前缀
+  - 支持 `aggressive: true` 加强压缩模式（context exceeded 重试时使用）
+  - 轻量字符级 token 估算器，无外部依赖
+
+#### 模型能力注册（ModelRegistry）
+
+- `src/main/ai/model-registry.ts` 管理模型的上下文窗口：
+  - 四层优先级：用户配置 > 已学习缓存 > 静态注册表 > 兜底 131072
+  - 成功请求且 inputTokens 接近估计 → 保守上调（×1.5，上限 1M）
+  - context exceeded 错误 → 下调（×0.7）并触发加强压缩重试
+  - 学习值持久化到 `ai-config.json`
+  - `resolveMaxOutputTokens()` 永远返回 number（用户配置 > 65536），始终传 `max_tokens` 避免 API 零输出
+
+#### 品牌图标系统
+
+- 图标嵌入在 `src/renderer/src/components/icons/providerIcons.tsx`，为 24×24 SVG path 数据
+- 三级匹配 fallback：`m.iconKey`（模型字段）→ `detectModelIconKey(m.model)`（按名称自动检测）→ `g.provider.presetIconKey`（供应商预设）
+- `detectModelIconKey` 在 `AiConfigDialog.tsx` 中定义，按模型名前缀/关键词匹配品牌
+- 添加新图标：在 `providerIcons.tsx` 中追加 SVG 路径数据，在 `detectModelIconKey` 中添加匹配规则
 
 ### 数据层
 
@@ -155,3 +185,7 @@ src/
 4. **窗口状态保存**：只在窗口**非最大化**状态保存 `windowBounds`；最大化时只保存 `maximized: true`，还原时恢复上次的 bounds。
 5. **AI 流式取消**：取消流式请求需调用 `cancelChat()`（内部通过 `AbortController` 实现），不能仅靠断开连接。SDK 的 `streamText()` 返回后会自动清理，但主动取消仍需调用 `cancelChat()` 触发 `AbortController.abort()`。
 6. **ESM 依赖外部化**：`@ai-sdk/*` 和 `ai` 包是纯 ESM 模块，必须从 `externalizeDepsPlugin({ exclude: [...] })` 中排除，否则打包后 `require()` 会抛出 `ERR_REQUIRE_ESM`。修改后需同步更新 `electron.vite.config.ts` 的 main 和 preload 两个配置段。
+7. **主进程需 build 后生效**：修改 `src/main/` 或 `src/preload/` 下的代码后，Vite HMR 仅覆盖渲染进程。主进程/preload 变更需 `pnpm build` 或重启 dev 才能生效。
+8. **`@ai-sdk/openai` v4 默认走 /responses**：调用第三方 API 必须使用 `@ai-sdk/openai-compatible` 的 `createOpenAICompatible().chatModel()`。`createOpenAI().chat()` 虽走 `/chat/completions` 但不解析 `delta.reasoning_content`。
+9. **API 错误被 Zod 噪音淹没**：非 SSE 的 JSON 错误（如 `{"code":"InvalidParameter","message":"..."}`）会被 Vercel AI SDK 包装成大量 `invalid_union` 验证错误。`service.ts` 中的 `extractApiErrorMessage()` 从 `APICallError.responseBody` 还原原始消息。
+10. **切勿自动注入自定义参数**：`customParams` 是用户手动配置的请求体参数，不要自动注入（如 `setCacheKey`），第三方 API 不认会返回错误。
