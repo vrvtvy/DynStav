@@ -12,6 +12,7 @@ import { buildBlockContext, renderMarkdown } from './context'
 import ChatHistoryList from './ChatHistoryList'
 import styles from './AiChat.module.css'
 import { ProviderLogoIcon, providerIcons } from '../icons/providerIcons'
+import { detectModelIconKey } from './AiConfigDialog'
 import yinYangIcon from '../../../../../resources/yin-yang.png'
 
 interface AiChatProps {
@@ -85,11 +86,11 @@ const TEMPLATE_LETTERS: Record<AiProviderTemplate, string> = {
   custom: '?'
 }
 
-/** 模型供应商 Logo 组件：预设用品牌图标，非预设（用户自定义）用阴阳图 */
+/** 模型 Logo 组件：有品牌图标用 SVG，没有则阴阳图兜底 */
 function ProviderLogo({
-  template,
+  template: _template,
   size = 14,
-  presetLogo,
+  presetLogo: _presetLogo,
   presetIconKey,
 }: {
   template: AiProviderTemplate
@@ -100,35 +101,23 @@ function ProviderLogo({
   if (presetIconKey && providerIcons[presetIconKey]) {
     return <ProviderLogoIcon iconKey={presetIconKey} size={size} />
   }
-
-  if (presetIconKey) {
-    const color = TEMPLATE_COLORS[template] ?? '#6b7280'
-    const letter = presetLogo || TEMPLATE_LETTERS[template] || '?'
-    const r = size / 2 - 1
-    return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill={color} />
-        <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="central"
-          fill="#fff" fontSize={presetLogo && presetLogo.length > 1 ? size * 0.4 : size * 0.55} fontWeight="700" fontFamily="Arial, sans-serif">
-          {letter}
-        </text>
-      </svg>
-    )
-  }
-
   return <img src={yinYangIcon} width={size} height={size} style={{ flexShrink: 0, display: 'block' }} />
 }
 
 /** 获取当前活跃模型的显示信息 */
 function getActiveModelInfo(provider: AiProviderConfig | null, modelId: string | null) {
-  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate, presetLogo: undefined, presetIconKey: undefined }
+  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate, presetLogo: undefined, presetIconKey: undefined, modelIconKey: undefined }
   const models = provider.models || []
   const model = (modelId ? models.find(m => m.id === modelId) : null) || models[0]
+  // 优先：模型自存 iconKey → 实时按名称检测 → 供应商预设
+  const detectedIconKey = model ? detectModelIconKey(model.model) : undefined
+  const finalKey = model?.iconKey ?? detectedIconKey ?? provider.presetIconKey
   return {
     name: model?.name || model?.model || provider.model || '未配置',
     template: provider.template,
     presetLogo: provider.presetLogo,
     presetIconKey: provider.presetIconKey,
+    modelIconKey: finalKey,
   }
 }
 
@@ -791,7 +780,7 @@ export default function AiChat({
                 onClick={() => setModelPickerOpen(!modelPickerOpen)}
                 title="切换模型"
               >
-                <ProviderLogo template={modelInfo.template} size={14} presetLogo={modelInfo.presetLogo} presetIconKey={modelInfo.presetIconKey} />
+                <ProviderLogo template={modelInfo.template} size={14} presetLogo={modelInfo.presetLogo} presetIconKey={modelInfo.modelIconKey} />
                 <span className={styles.modelSelectorName}>{modelInfo.name}</span>
                 <svg className={styles.modelSelectorArrow} width="10" height="10" viewBox="0 0 24 24" fill="none">
                   <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -813,7 +802,7 @@ export default function AiChat({
                             className={`${styles.modelPickItem} ${isActive ? styles.modelPickActive : ''}`}
                             onClick={() => handlePickModel(g.provider.id, m.id)}
                           >
-                            <ProviderLogo template={g.provider.template} size={14} presetLogo={g.provider.presetLogo} presetIconKey={g.provider.presetIconKey} />
+                            <ProviderLogo template={g.provider.template} size={14} presetLogo={g.provider.presetLogo} presetIconKey={m.iconKey ?? detectModelIconKey(m.model) ?? g.provider.presetIconKey} />
                             <span className={styles.modelPickName}>{m.name || m.model}</span>
                             {isActive && <span className={styles.modelPickCheck}>✓</span>}
                           </button>

@@ -80,6 +80,24 @@ function genModelId(): string {
   return `mdl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
 }
 
+/** 从模型名自动检测品牌图标 key（公开，AiChat 也复用） */
+export function detectModelIconKey(model: string): string | undefined {
+  const m = model.toLowerCase()
+  if (m.includes('qwen')) return 'qwen'
+  if (m.includes('deepseek')) return 'deepseek'
+  if (m.includes('glm')) return 'zhipu'
+  if (m.includes('gemini')) return 'google'
+  if (m.includes('claude')) return 'anthropic'
+  if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return 'openai'
+  if (m.includes('grok')) return 'grok'
+  if (m.includes('kimi') || m.includes('moonshot')) return 'moonshot'
+  if (m.includes('minimax') || m.includes('abab')) return 'minimax'
+  if (m.includes('mimo') || m.includes('xiaomi')) return 'xiaomimimo'
+  if (m.includes('doubao')) return 'doubao'
+  if (m.includes('hunyuan')) return 'hunyuan'
+  return undefined
+}
+
 export default function AiConfigDialog({
   open,
   providers,
@@ -226,6 +244,7 @@ export default function AiConfigDialog({
           id: genModelId(),
           model: id,
           name: '',
+          iconKey: detectModelIconKey(id),
         }))
       if (newModels.length === 0) {
         setError('所有模型已存在，无需重复添加')
@@ -248,6 +267,7 @@ export default function AiConfigDialog({
       id: genModelId(),
       model: '',
       name: '',
+      iconKey: undefined,
     }
     const models = [...(editing.models || []), newModel]
     setList(prev => prev.map(p => (p.id === editing.id ? { ...p, models } : p)))

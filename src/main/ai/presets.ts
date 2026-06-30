@@ -49,12 +49,12 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
   },
   {
     presetId: 'dashscope',
-    name: '通义千问 (百炼)',
+    name: '阿里云',
     template: 'completion',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     path: '/chat/completions',
-    logo: 'QW',
-    iconKey: 'qwen',
+    logo: 'AL',
+    iconKey: 'alibabacloud',
     supportsFetchModels: true,
   },
   {
@@ -147,6 +147,16 @@ export const PRESET_PROVIDERS: PresetProviderDef[] = [
     path: '/chat/completions',
     logo: 'GK',
     iconKey: 'grok',
+    supportsFetchModels: true,
+  },
+  {
+    presetId: 'opencode',
+    name: 'OpenCode',
+    template: 'completion',
+    baseUrl: 'https://opencode.ai/zen/v1',
+    path: '/chat/completions',
+    logo: 'OC',
+    iconKey: 'opencode',
     supportsFetchModels: true,
   },
   {

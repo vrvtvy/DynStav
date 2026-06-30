@@ -103,6 +103,8 @@ export interface AiModelConfig {
   contextWindow?: number
   /** 推理强度，仅对支持推理的模型生效 */
   reasoning?: ReasoningLevel
+  /** 模型品牌图标 key（对应 @lobehub/icons），留空时从模型名自动检测 */
+  iconKey?: string
 }
 
 /**
