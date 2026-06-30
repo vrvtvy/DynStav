@@ -135,7 +135,7 @@ pnpm dist         # 打包 Windows 安装程序（输出到 release/）
 ```
 src/
 ├── main/                 # Electron 主进程
-│   ├── ai/               # AI 对话服务（流式聊天、模型适配、预设供应商）
+│   ├── ai/               # AI 对话服务（Vercel AI SDK 流式聊天、模型桥接、预设供应商）
 │   ├── analyzer/         # 数据分析计算
 │   ├── config-parser/    # 同花顺配置文件解析 (GB18030)
 │   ├── data-fetcher/     # 行情数据获取 (腾讯行情接口)
@@ -159,7 +159,8 @@ src/
 | 框架     | Electron 33、React 18、TypeScript 5                       |
 | 构建     | electron-vite、electron-builder                           |
 | 可视化   | ECharts 5、echarts-for-react                              |
-| AI 对话  | Chat Completions / Responses / Anthropic / 自定义兼容接口 |
+| AI 对话  | Vercel AI SDK 7（streamText / generateText）              |
+| AI 供应商 | @ai-sdk/openai、@ai-sdk/anthropic、@ai-sdk/google         |
 | 数据存储 | sql.js（SQLite 的 WASM 版本）                             |
 | 日志     | electron-log                                              |
 | 编码处理 | iconv-lite（解析 GB18030 配置）                           |

@@ -19,25 +19,27 @@ pnpm run start        # 构建后启动应用
 
 ## 技术栈
 
-| 领域     | 技术                                           |
-| -------- | ---------------------------------------------- |
-| 框架     | Electron 33、React 18、TypeScript 5            |
-| 构建     | electron-vite、electron-builder                |
-| 可视化   | ECharts 5、echarts-for-react                   |
-| 数据存储 | sql.js（SQLite WASM）                          |
-| 日志     | electron-log                                   |
-| 编码处理 | iconv-lite（解析 GB18030 编码的同花顺配置）     |
+| 领域     | 技术                                                      |
+| -------- | --------------------------------------------------------- |
+| 框架     | Electron 33、React 18、TypeScript 5                       |
+| 构建     | electron-vite、electron-builder                           |
+| 可视化   | ECharts 5、echarts-for-react                              |
+| AI 对话  | Vercel AI SDK 7（streamText / generateText）              |
+| AI 供应商 | @ai-sdk/openai、@ai-sdk/anthropic、@ai-sdk/google         |
+| 数据存储 | sql.js（SQLite WASM）                                     |
+| 日志     | electron-log                                              |
+| 编码处理 | iconv-lite（解析 GB18030 编码的同花顺配置）                |
 
 ## 项目结构
 
 ```
 src/
 ├── main/                 # Electron 主进程
-│   ├── ai/               # AI 对话服务（流式聊天、适配器模式）
-│   │   ├── adapters.ts   #   供应商适配器（openai/anthropic/responses）
+│   ├── ai/               # AI 对话服务（流式聊天、Vercel AI SDK）
+│   │   ├── sdk-providers.ts  #   AiProviderConfig → SDK LanguageModel 桥接
 │   │   ├── presets.ts    #   预设供应商列表（13 家主流 AI 服务商）
-│   │   ├── service.ts    #   流式聊天主逻辑
-│   │   └── types.ts      #   AdapterRequest / ParsedDelta 接口
+│   │   ├── service.ts    #   流式聊天主逻辑（streamText / generateText）
+│   │   └── types.ts      #   上下文构建工具（buildContextPrompt / injectContext）
 │   ├── analyzer/         # 板块指标计算
 │   ├── config-parser/    # 同花顺 stockblock.ini 解析（GB18030 → UTF-8）
 │   ├── data-fetcher/     # 腾讯行情接口获取 A 股实时行情
@@ -95,12 +97,16 @@ src/
 - 渲染进程通过 `window.electronAPI.*`（preload 通过 `contextBridge.exposeInMainWorld` 暴露）调用。
 - IPC 通道名称定义在 `src/renderer/src/types/index.ts` 的 `IPC_CHANNELS` 常量中。
 
-### AI 供应商适配器模式
-- 新增供应商：在 `src/main/ai/adapters.ts` 中实现 `ProviderAdapter` 接口：
-  - `buildRequest(config, messages) → AdapterRequest`：构造 HTTP 请求
-  - `parseDelta(line) → ParsedDelta | null`：解析 SSE 数据行
+### AI 供应商集成（Vercel AI SDK）
+- 底层统一使用 Vercel AI SDK 的 `streamText()`（流式）和 `generateText()`（测试连接）。
+- 供应商桥接在 `src/main/ai/sdk-providers.ts` 中实现：
+  - `createProvider(config) → LanguageModel`：根据 `template` 类型创建对应的 SDK provider：
+    - `completion` / `responses` / `custom` → `createOpenAI({ baseURL, apiKey, headers })`
+    - `anthropic` → `createAnthropic({ baseURL, apiKey })`
+  - SDK 原生处理 SSE 解析、delta 合并、重试（`maxRetries: 2`）和超时（`timeout`）。
 - 预设定义在 `src/main/ai/presets.ts` 的 `PRESET_PROVIDERS` 数组中追加。
-- 支持三种模板：`completion`（OpenAI 兼容）、`anthropic`（Anthropic Messages API）、`responses`（OpenAI Responses API）。
+- 新增供应商：一般在 `presets.ts` 追加预设即可。若有特殊请求体/响应格式，在 `sdk-providers.ts` 中新增 `template` 分支。
+- `src/main/ai/adapters.ts` 已废弃（旧的自定义适配器模式由 SDK 替代）。
 
 ### 数据层
 - **仓库模式**：`DataRepository` 接口定义在 `src/main/db/interface.ts`，`SqliteRepository` 实现于 `src/main/db/sqlite.ts`。
@@ -140,4 +146,5 @@ src/
 2. **交易日历**：渲染进程 `src/renderer/src/utils.ts` 中的 `getTradingDateRange` 已标记 `@deprecated`（仅跳过周末，不跳过节假日），应使用主进程 `src/main/trading-calendar.ts` 的完整交易日历接口。
 3. **日志初始化顺序**：`setupLogger()` → `log.initialize()` → `installGlobalErrorHandlers()` 必须在主进程入口 `src/main/index.ts` 的最顶部执行，确保后续所有操作的异常都能被捕获记录。
 4. **窗口状态保存**：只在窗口**非最大化**状态保存 `windowBounds`；最大化时只保存 `maximized: true`，还原时恢复上次的 bounds。
-5. **AI 流式取消**：取消流式请求需调用 `cancelChat()`（内部通过 `AbortController` 实现），不能仅靠断开连接。
+5. **AI 流式取消**：取消流式请求需调用 `cancelChat()`（内部通过 `AbortController` 实现），不能仅靠断开连接。SDK 的 `streamText()` 返回后会自动清理，但主动取消仍需调用 `cancelChat()` 触发 `AbortController.abort()`。
+6. **ESM 依赖外部化**：`@ai-sdk/*` 和 `ai` 包是纯 ESM 模块，必须从 `externalizeDepsPlugin({ exclude: [...] })` 中排除，否则打包后 `require()` 会抛出 `ERR_REQUIRE_ESM`。修改后需同步更新 `electron.vite.config.ts` 的 main 和 preload 两个配置段。
