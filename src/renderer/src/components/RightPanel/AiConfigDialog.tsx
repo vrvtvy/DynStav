@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import {
   AiProviderConfig,
   AiProviderTemplate,
-  AiModelConfig
+  AiModelConfig,
+  ReasoningLevel
 } from '../../types'
 import styles from './AiConfigDialog.module.css'
 
@@ -65,7 +66,7 @@ const DEFAULT_PROVIDER: Omit<AiProviderConfig, 'id'> = {
   model: TEMPLATE_PRESETS.completion.model,
   path: TEMPLATE_PRESETS.completion.path,
   apiKey: '',
-  timeoutMs: 15000,
+  timeoutMs: 300000,
   temperature: 0.3,
   headers: {},
   models: []
@@ -77,6 +78,25 @@ function genId(): string {
 
 function genModelId(): string {
   return `mdl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+}
+
+/** 从模型名自动检测品牌图标 key（公开，AiChat 也复用） */
+export function detectModelIconKey(model: string): string | undefined {
+  const m = model.toLowerCase()
+  if (m.includes('qwen')) return 'qwen'
+  if (m.includes('deepseek')) return 'deepseek'
+  if (m.includes('glm')) return 'zhipu'
+  if (m.includes('gemini')) return 'google'
+  if (m.includes('claude')) return 'anthropic'
+  if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return 'openai'
+  if (m.includes('grok')) return 'grok'
+  if (m.includes('kimi')) return 'kimi'
+  if (m.includes('moonshot')) return 'moonshot'
+  if (m.includes('minimax') || m.includes('abab')) return 'minimax'
+  if (m.includes('mimo') || m.includes('xiaomi')) return 'xiaomimimo'
+  if (m.includes('doubao')) return 'doubao'
+  if (m.includes('hunyuan')) return 'hunyuan'
+  return undefined
 }
 
 export default function AiConfigDialog({
@@ -225,7 +245,7 @@ export default function AiConfigDialog({
           id: genModelId(),
           model: id,
           name: '',
-          customParams: { setCacheKey: 'true' }
+          iconKey: detectModelIconKey(id),
         }))
       if (newModels.length === 0) {
         setError('所有模型已存在，无需重复添加')
@@ -248,7 +268,7 @@ export default function AiConfigDialog({
       id: genModelId(),
       model: '',
       name: '',
-      customParams: { setCacheKey: 'true' }
+      iconKey: undefined,
     }
     const models = [...(editing.models || []), newModel]
     setList(prev => prev.map(p => (p.id === editing.id ? { ...p, models } : p)))
@@ -321,7 +341,10 @@ export default function AiConfigDialog({
       ...editing,
       model: model.model,
       temperature: model.temperature ?? editing.temperature,
-      customParams: model.customParams
+      customParams: { ...editing.customParams, ...model.customParams },
+      maxOutputTokens: model.maxOutputTokens ?? editing.maxOutputTokens,
+      contextWindow: model.contextWindow ?? editing.contextWindow,
+      reasoning: model.reasoning,
     }
     setTestingModelId(model.id)
     setModelTestResults(prev => {
@@ -541,19 +564,6 @@ export default function AiConfigDialog({
                   <div className={styles.hint}>密钥经系统级 DPAPI 加密后存储于本地配置目录。</div>
                 </div>
 
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>默认超时（毫秒）</label>
-                  <input
-                    className={styles.input}
-                    type="number"
-                    min={3000}
-                    step={1000}
-                    value={editing.timeoutMs}
-                    onChange={e => update('timeoutMs', Number(e.target.value) || 15000)}
-                    style={{ width: 150 }}
-                  />
-                </div>
-
                 {/* ─── 模型列表 ─── */}
                 <div className={styles.sectionTitle}>
                   模型列表
@@ -624,12 +634,67 @@ export default function AiConfigDialog({
                               </div>
                             </div>
 
+                            {/* ─── 高级参数（可选项，留空使用模型默认） ─── */}
+                            <div className={styles.formRow}>
+                              <div className={styles.formGroup}>
+                                <label className={styles.label}>
+                                  最大输出 Token
+                                  <span className={styles.helpIcon} title="模型单次回复的最大 token 数。留空则使用模型官方默认值，无需手动设置。仅当需要限制输出长度时填写。">?</span>
+                                </label>
+                                <input
+                                  className={styles.input}
+                                  type="number"
+                                  min={1}
+                                  value={m.maxOutputTokens ?? ''}
+                                  onChange={e => updateModel(m.id, 'maxOutputTokens', e.target.value ? Number(e.target.value) : undefined)}
+                                  placeholder="留空=模型默认"
+                                  style={{ width: 150 }}
+                                />
+                                <div className={styles.hint}>不填则使用模型官方默认值，无需手动设置</div>
+                              </div>
+                              <div className={styles.formGroup}>
+                                <label className={styles.label}>
+                                  上下文窗口
+                                  <span className={styles.helpIcon} title="模型可处理的最大上下文长度（token）。留空则系统自动学习该模型的窗口大小。已知可手动填写，如 1048576 表示 1M。">?</span>
+                                </label>
+                                <input
+                                  className={styles.input}
+                                  type="number"
+                                  min={1024}
+                                  value={m.contextWindow ?? ''}
+                                  onChange={e => updateModel(m.id, 'contextWindow', e.target.value ? Number(e.target.value) : undefined)}
+                                  placeholder="留空=自动学习"
+                                  style={{ width: 150 }}
+                                />
+                                <div className={styles.hint}>不填则系统自动学习；如 1048576 = 1M</div>
+                              </div>
+                              <div className={styles.formGroup}>
+                                <label className={styles.label}>
+                                  推理强度
+                                  <span className={styles.helpIcon} title="仅对支持推理的模型（DeepSeek R1 / Claude thinking / o1 等）生效。留空则使用模型默认行为。">?</span>
+                                </label>
+                                <select
+                                  className={styles.select}
+                                  value={m.reasoning || 'provider-default'}
+                                  onChange={e => updateModel(m.id, 'reasoning', e.target.value === 'provider-default' ? undefined : e.target.value as ReasoningLevel)}
+                                >
+                                  <option value="provider-default">默认</option>
+                                  <option value="low">低</option>
+                                  <option value="medium">中</option>
+                                  <option value="high">高</option>
+                                  <option value="xhigh">极高</option>
+                                  <option value="max">最大</option>
+                                </select>
+                                <div className={styles.hint}>仅对推理模型生效</div>
+                              </div>
+                            </div>
+
                             {/* ─── 自定义参数 ─── */}
                             <div className={styles.paramSection}>
                               <div className={styles.paramHeader}>
                                 <label className={styles.label}>
                                   自定义参数
-                                  <span className={styles.helpIcon} title="按模型方文档添加额外的请求体参数，如 reasoning_effort、top_p 等。值会自动解析为数字/布尔/JSON。">?</span>
+                                  <span className={styles.helpIcon} title="按模型方文档添加额外的请求体参数，如 reasoning_effort、top_p 等。参数将映射到 providerOptions 传递给模型 API，值会自动解析为数字/布尔/JSON。">?</span>
                                 </label>
                                 <button className={styles.addParamBtn} onClick={() => addCustomParam(m.id)}>+ 添加</button>
                               </div>

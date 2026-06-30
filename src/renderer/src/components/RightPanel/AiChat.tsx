@@ -12,6 +12,7 @@ import { buildBlockContext, renderMarkdown } from './context'
 import ChatHistoryList from './ChatHistoryList'
 import styles from './AiChat.module.css'
 import { ProviderLogoIcon, providerIcons } from '../icons/providerIcons'
+import { detectModelIconKey } from './AiConfigDialog'
 import yinYangIcon from '../../../../../resources/yin-yang.png'
 
 interface AiChatProps {
@@ -36,6 +37,15 @@ interface UiMessage {
   /** 思考内容是否正在流式接收中 */
   thinkingStreaming?: boolean
   error?: boolean
+  /** token 用量（回复完成后由 onFinish 返回） */
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    reasoningTokens?: number
+    totalTokens?: number
+  }
+  /** 是否触发了上下文自动压缩 */
+  compressed?: boolean
 }
 
 /** 预置快捷提问，符合需求 §5 的典型示例。 */
@@ -76,11 +86,11 @@ const TEMPLATE_LETTERS: Record<AiProviderTemplate, string> = {
   custom: '?'
 }
 
-/** 模型供应商 Logo 组件：预设用品牌图标，非预设（用户自定义）用阴阳图 */
+/** 模型 Logo 组件：有品牌图标用 SVG，没有则阴阳图兜底 */
 function ProviderLogo({
-  template,
+  template: _template,
   size = 14,
-  presetLogo,
+  presetLogo: _presetLogo,
   presetIconKey,
 }: {
   template: AiProviderTemplate
@@ -91,37 +101,23 @@ function ProviderLogo({
   if (presetIconKey && providerIcons[presetIconKey]) {
     return <ProviderLogoIcon iconKey={presetIconKey} size={size} />
   }
-
-  if (presetIconKey) {
-    // 兼容旧模板名 openai→completion, azure→responses
-    const tplKey = (template === 'openai' ? 'completion' : template === 'azure' ? 'responses' : template) as AiProviderTemplate
-    const color = TEMPLATE_COLORS[tplKey] ?? '#6b7280'
-    const letter = presetLogo || TEMPLATE_LETTERS[tplKey] || '?'
-    const r = size / 2 - 1
-    return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0, display: 'block' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill={color} />
-        <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="central"
-          fill="#fff" fontSize={presetLogo && presetLogo.length > 1 ? size * 0.4 : size * 0.55} fontWeight="700" fontFamily="Arial, sans-serif">
-          {letter}
-        </text>
-      </svg>
-    )
-  }
-
   return <img src={yinYangIcon} width={size} height={size} style={{ flexShrink: 0, display: 'block' }} />
 }
 
 /** 获取当前活跃模型的显示信息 */
 function getActiveModelInfo(provider: AiProviderConfig | null, modelId: string | null) {
-  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate, presetLogo: undefined, presetIconKey: undefined }
+  if (!provider) return { name: '未配置', template: 'custom' as AiProviderTemplate, presetLogo: undefined, presetIconKey: undefined, modelIconKey: undefined }
   const models = provider.models || []
   const model = (modelId ? models.find(m => m.id === modelId) : null) || models[0]
+  // 优先：模型自存 iconKey → 实时按名称检测 → 供应商预设
+  const detectedIconKey = model ? detectModelIconKey(model.model) : undefined
+  const finalKey = model?.iconKey ?? detectedIconKey ?? provider.presetIconKey
   return {
     name: model?.name || model?.model || provider.model || '未配置',
     template: provider.template,
     presetLogo: provider.presetLogo,
     presetIconKey: provider.presetIconKey,
+    modelIconKey: finalKey,
   }
 }
 
@@ -214,7 +210,8 @@ export default function AiChat({
       content: m.content,
       thinkingContent: m.thinkingContent,
       createdAt: now,
-      error: m.error
+      error: m.error,
+      usage: m.usage
     }))
 
     await window.electronAPI.aiSaveSession({ session, messages: dbMessages })
@@ -228,7 +225,8 @@ export default function AiChat({
       role: m.role as 'user' | 'assistant',
       content: m.content,
       thinkingContent: m.thinkingContent || undefined,
-      error: m.error || false
+      error: m.error || false,
+      usage: m.usage
     }))
     setMessages(uiMsgs)
     setCurrentSessionId(sessionId)
@@ -266,7 +264,8 @@ export default function AiChat({
             content: m.content,
             thinkingContent: m.thinkingContent,
             createdAt: now,
-            error: m.error
+            error: m.error,
+            usage: m.usage
           }))
         })
       }
@@ -311,13 +310,14 @@ export default function AiChat({
     }
   }, [messages])
 
-  // 思考区块内部自动滚动到底部
+  // 思考区块内部自动滚动到底部（仅在思考流式更新时触发）
+  const thinkingStreamingCount = messages.filter(m => m.thinkingStreaming).length
   useEffect(() => {
     const el = thinkingScrollRef.current
     if (el) {
       el.scrollTop = el.scrollHeight
     }
-  }, [messages])
+  }, [thinkingStreamingCount])
 
   // 监听 AI_CHAT_STARTED 事件
   useEffect(() => {
@@ -331,7 +331,7 @@ export default function AiChat({
   useEffect(() => {
     const unsub = window.electronAPI.onAiChatChunk((data) => {
       if (data.requestId !== pendingRequestId) return
-      const { delta, thinking, done, error } = data.chunk
+      const { delta, thinking, done, error, usage, compressed } = data.chunk
       setMessages(prev => {
         const next = [...prev]
         const last = next[next.length - 1]
@@ -359,6 +359,9 @@ export default function AiChat({
             if (last.thinkingContent) {
               setThinkingExpanded(prev => ({ ...prev, [last.id]: false }))
             }
+            // 捕获 token 用量和压缩标记
+            if (usage) last.usage = usage
+            if (compressed) last.compressed = compressed
           }
           return [...next]
         }
@@ -402,8 +405,9 @@ export default function AiChat({
       setInput('')
       requestAnimationFrame(resizeTextarea)
 
-      const recent: ChatMessage[] = [
-        ...messages.filter(m => !m.error).slice(-6).map(m => ({ role: m.role, content: m.content })),
+      // 发送全部历史消息（主进程 ContextManager 负责 token 感知截断和摘要压缩）
+      const allMessages: ChatMessage[] = [
+        ...messages.filter(m => !m.error && m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content }
       ]
 
@@ -411,7 +415,7 @@ export default function AiChat({
         await window.electronAPI.aiChat({
           providerId: activeProvider!.id,
           activeModelId: activeModelId || undefined,
-          messages: recent,
+          messages: allMessages,
           context
         })
       } catch (e: any) {
@@ -456,6 +460,19 @@ export default function AiChat({
     setMessages([])
     setCurrentSessionId(null)
     setThinkingExpanded({})
+  }
+
+  /** 重试失败的 AI 请求：找到失败消息之前的最后一条用户消息并重新发送。 */
+  function handleRetry(failedMsgId: string) {
+    const idx = messages.findIndex(m => m.id === failedMsgId)
+    if (idx === -1) return
+    // 向前查找最近的一条用户消息
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        send(messages[i].content)
+        return
+      }
+    }
   }
 
   function handleReanalyze() {
@@ -629,11 +646,25 @@ export default function AiChat({
                         <span className={styles.thinkingLabel}>
                           {m.thinkingStreaming ? '思考中…' : '思考过程'}
                         </span>
+                        {/* P0: 折叠时显示字符数 + 首行摘要 */}
+                        {!thinkingExpanded[m.id] && (
+                          <span className={styles.thinkingSummary} title={m.thinkingContent.slice(0, 60)}>
+                            {m.thinkingContent.length > 40
+                              ? m.thinkingContent.slice(0, 40).replace(/\n.*/, '') + '…'
+                              : m.thinkingContent.slice(0, 40)}
+                          </span>
+                        )}
+                        <span className={styles.thinkingStats}>
+                          {m.thinkingContent.length}字
+                        </span>
                         {m.thinkingStreaming && (
                           <span className={styles.thinkingPulse} />
                         )}
                       </button>
-                      {thinkingExpanded[m.id] && (
+                      {/* P1: 过渡动画包装 */}
+                      <div
+                        className={`${styles.thinkingContentWrapper} ${thinkingExpanded[m.id] ? styles.thinkingContentWrapperOpen : ''}`}
+                      >
                         <div
                           className={styles.thinkingContent}
                           ref={m.streaming ? thinkingScrollRef : undefined}
@@ -642,8 +673,16 @@ export default function AiChat({
                             className={styles.thinkingText}
                             dangerouslySetInnerHTML={{ __html: renderMarkdown(m.thinkingContent) }}
                           />
+                          {/* P2: 思考内容复制按钮 */}
+                          {!m.streaming && (
+                            <button
+                              className={styles.thinkingCopyBtn}
+                              onClick={() => navigator.clipboard.writeText(m.thinkingContent || '')}
+                              title="复制思考过程"
+                            >📋</button>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   )}
                   {/* 正在思考但尚无内容时的占位指示 */}
@@ -665,12 +704,52 @@ export default function AiChat({
                       <div className={styles.disclaimer}>
                         以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，入市需谨慎。
                       </div>
+                      {(m.usage || m.compressed) && (
+                        <div className={styles.msgMeta}>
+                          {m.compressed && (
+                            <span className={styles.msgMetaCompressed} title="历史对话过长，已自动压缩为摘要">
+                              ⚡ 已压缩历史
+                            </span>
+                          )}
+                          {m.compressed && m.usage && <span className={styles.msgMetaSep}>·</span>}
+                          {m.usage && (
+                            <>
+                              {typeof m.usage.inputTokens === 'number' && (
+                                <span title="输入 token 数">输入 {m.usage.inputTokens.toLocaleString()}</span>
+                              )}
+                              {typeof m.usage.outputTokens === 'number' && (
+                                <>
+                                  <span className={styles.msgMetaSep}>·</span>
+                                  <span title="输出 token 数">输出 {m.usage.outputTokens.toLocaleString()}</span>
+                                </>
+                              )}
+                              {typeof m.usage.reasoningTokens === 'number' && m.usage.reasoningTokens > 0 && (
+                                <>
+                                  <span className={styles.msgMetaSep}>·</span>
+                                  <span title="推理 token 数">思考 {m.usage.reasoningTokens.toLocaleString()}</span>
+                                </>
+                              )}
+                              {typeof m.usage.totalTokens === 'number' && (
+                                <>
+                                  <span className={styles.msgMetaSep}>·</span>
+                                  <span title="总计 token 数">共 {m.usage.totalTokens.toLocaleString()} token</span>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                       <button
                         className={styles.copyBtn}
                         onClick={() => navigator.clipboard.writeText(m.content)}
                         title="复制"
                       >📋</button>
                     </>
+                  )}
+                  {m.role === 'assistant' && !m.streaming && m.content && m.error && (
+                    <button className={styles.retryBtn} onClick={() => handleRetry(m.id)}>
+                      🔄 重新发送
+                    </button>
                   )}
                 </div>
               </div>
@@ -701,7 +780,7 @@ export default function AiChat({
                 onClick={() => setModelPickerOpen(!modelPickerOpen)}
                 title="切换模型"
               >
-                <ProviderLogo template={modelInfo.template} size={14} presetLogo={modelInfo.presetLogo} presetIconKey={modelInfo.presetIconKey} />
+                <ProviderLogo template={modelInfo.template} size={14} presetLogo={modelInfo.presetLogo} presetIconKey={modelInfo.modelIconKey} />
                 <span className={styles.modelSelectorName}>{modelInfo.name}</span>
                 <svg className={styles.modelSelectorArrow} width="10" height="10" viewBox="0 0 24 24" fill="none">
                   <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -723,7 +802,7 @@ export default function AiChat({
                             className={`${styles.modelPickItem} ${isActive ? styles.modelPickActive : ''}`}
                             onClick={() => handlePickModel(g.provider.id, m.id)}
                           >
-                            <ProviderLogo template={g.provider.template} size={14} presetLogo={g.provider.presetLogo} presetIconKey={g.provider.presetIconKey} />
+                            <ProviderLogo template={g.provider.template} size={14} presetLogo={g.provider.presetLogo} presetIconKey={m.iconKey ?? detectModelIconKey(m.model) ?? g.provider.presetIconKey} />
                             <span className={styles.modelPickName}>{m.name || m.model}</span>
                             {isActive && <span className={styles.modelPickCheck}>✓</span>}
                           </button>

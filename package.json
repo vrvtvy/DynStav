@@ -1,6 +1,6 @@
 {
   "name": "dynstav",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "动态板块趋势分析可视化 (Dynamic Sector Trend Analysis Visualization)",
   "author": "vrvtvy",
   "license": "MIT",
@@ -31,7 +31,10 @@
       "resources/icon.png"
     ],
     "win": {
-      "target": ["nsis", "zip"],
+      "target": [
+        "nsis",
+        "zip"
+      ],
       "icon": "resources/icon.ico"
     },
     "nsis": {
@@ -51,11 +54,17 @@
     "vite": "^6.0.7"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.1",
+    "@ai-sdk/google": "^4.0.2",
+    "@ai-sdk/openai": "^4.0.2",
+    "@ai-sdk/openai-compatible": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
+    "ai": "^7.0.4",
     "echarts": "^5.5.1",
     "echarts-for-react": "^3.0.2",
     "electron-log": "^5.4.4",
     "iconv-lite": "^0.7.2",
+    "marked": "^18.0.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sql.js": "^1.11.0"

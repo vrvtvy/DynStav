@@ -215,40 +215,44 @@
   overflow-x: auto;
 }
 
-/* markdown 渲染样式 */
-.msgContent :global(.md-p) {
+/* markdown 渲染样式（marked 输出标准 HTML） */
+.msgContent :global(p) {
   margin: 0 0 var(--spacing-xs);
 }
 
-.msgContent :global(.md-p:last-child) {
+.msgContent :global(p:last-child) {
   margin-bottom: 0;
 }
 
-.msgContent :global(.md-ul) {
+.msgContent :global(ul),
+.msgContent :global(ol) {
   margin: var(--spacing-xs) 0;
   padding-left: var(--spacing-lg);
 }
 
-.msgContent :global(.md-ul li) {
+.msgContent :global(ul li),
+.msgContent :global(ol li) {
   margin: 2px 0;
 }
 
-.msgContent :global(.md-h) {
+.msgContent :global(h1),
+.msgContent :global(h2),
+.msgContent :global(h3),
+.msgContent :global(h4),
+.msgContent :global(h5),
+.msgContent :global(h6) {
   margin: var(--spacing-sm) 0 var(--spacing-xs);
   font-weight: 600;
+  font-size: var(--font-size-sm);
 }
 
-.msgContent :global(.md-h1) { font-size: 15px; }
-.msgContent :global(.md-h2) { font-size: 14px; }
-.msgContent :global(.md-h3) { font-size: 13px; }
-
-.msgContent :global(.md-h1):first-child,
-.msgContent :global(.md-h2):first-child,
-.msgContent :global(.md-h3):first-child {
+.msgContent :global(h1:first-child),
+.msgContent :global(h2:first-child),
+.msgContent :global(h3:first-child) {
   margin-top: 0;
 }
 
-.msgContent :global(.md-code) {
+.msgContent :global(code) {
   padding: 1px 5px;
   background: var(--bg-tertiary);
   border-radius: 3px;
@@ -256,11 +260,11 @@
   font-size: 12px;
 }
 
-.msgUser .msgContent :global(.md-code) {
+.msgUser .msgContent :global(code) {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.msgContent :global(.md-pre) {
+.msgContent :global(pre) {
   margin: var(--spacing-xs) 0;
   padding: var(--spacing-sm);
   background: var(--bg-tertiary);
@@ -268,7 +272,7 @@
   overflow-x: auto;
 }
 
-.msgContent :global(.md-pre code) {
+.msgContent :global(pre code) {
   padding: 0;
   background: transparent;
   font-family: 'Cascadia Code', Consolas, Monaco, monospace;
@@ -277,6 +281,51 @@
 
 .msgContent :global(strong) {
   font-weight: 600;
+}
+
+/* 表格 */
+.msgContent :global(table) {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: var(--spacing-xs) 0;
+}
+
+.msgContent :global(th),
+.msgContent :global(td) {
+  padding: 5px 8px;
+  border: 1px solid var(--border-color);
+  text-align: left;
+}
+
+.msgContent :global(th) {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.msgContent :global(tr:nth-child(even) td) {
+  background: rgba(128, 128, 128, 0.04);
+}
+
+/* 引用块 */
+.msgContent :global(blockquote) {
+  margin: var(--spacing-xs) 0;
+  padding: 2px 10px;
+  border-left: 3px solid var(--accent-primary);
+  color: var(--text-secondary);
+}
+
+.msgContent :global(blockquote p) {
+  margin: 0;
+}
+
+/* 水平线 */
+.msgContent :global(hr) {
+  margin: var(--spacing-sm) 0;
+  border: none;
+  border-top: 1px solid var(--border-color);
 }
 
 .copyBtn {
@@ -303,6 +352,28 @@
   color: var(--text-primary);
 }
 
+/* ─── 重试按钮（错误消息时显示） ─── */
+.retryBtn {
+  display: block;
+  width: 100%;
+  margin-top: var(--spacing-sm);
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  text-align: center;
+  transition: background var(--transition-speed), border-color var(--transition-speed);
+}
+
+.retryBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
 .disclaimer {
   margin-top: var(--spacing-sm);
   padding-top: var(--spacing-xs);
@@ -310,6 +381,27 @@
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.5;
+  opacity: 0.8;
+}
+
+/* token 用量与压缩指示 */
+.msgMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  line-height: 1.4;
+}
+
+.msgMetaSep {
+  opacity: 0.5;
+}
+
+.msgMetaCompressed {
+  color: var(--accent-primary);
   opacity: 0.8;
 }
 
@@ -342,6 +434,10 @@
   margin-bottom: var(--spacing-sm);
   border-bottom: 1px dashed var(--border-color);
   padding-bottom: var(--spacing-sm);
+  /* P4: 折叠状态下左侧彩色装饰条 */
+  border-left: 3px solid var(--accent-primary);
+  padding-left: var(--spacing-sm);
+  border-radius: 0 4px 4px 0;
 }
 
 .thinkingToggle {
@@ -376,6 +472,28 @@
   font-weight: 500;
 }
 
+/* P0: 折叠时显示的思考摘要 */
+.thinkingSummary {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+  font-weight: 400;
+  opacity: 0.6;
+  font-size: 10px;
+  direction: rtl;
+  text-align: right;
+}
+
+.thinkingStats {
+  margin-left: auto;
+  font-weight: 400;
+  opacity: 0.5;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
 .thinkingPulse {
   width: 6px;
   height: 6px;
@@ -388,6 +506,19 @@
 @keyframes pulse {
   0%, 100% { opacity: 0.3; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* P1: 展开/折叠过渡动画 */
+.thinkingContentWrapper {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+  max-height: 0;
+  opacity: 0;
+}
+
+.thinkingContentWrapperOpen {
+  max-height: 320px;
+  opacity: 1;
 }
 
 .thinkingContent {
@@ -404,15 +535,15 @@
   color: var(--text-muted);
 }
 
-.thinkingText :global(.md-p) {
+.thinkingText :global(p) {
   margin: 0 0 4px;
 }
 
-.thinkingText :global(.md-p:last-child) {
+.thinkingText :global(p:last-child) {
   margin-bottom: 0;
 }
 
-.thinkingText :global(.md-code) {
+.thinkingText :global(code) {
   padding: 1px 4px;
   background: var(--bg-tertiary);
   border-radius: 2px;
@@ -420,7 +551,7 @@
   font-size: 10px;
 }
 
-.thinkingText :global(.md-pre) {
+.thinkingText :global(pre) {
   margin: 4px 0;
   padding: 6px 8px;
   background: var(--bg-tertiary);
@@ -428,10 +559,35 @@
   overflow-x: auto;
 }
 
-.thinkingText :global(.md-pre code) {
+.thinkingText :global(pre code) {
   padding: 0;
   background: transparent;
   font-size: 10px;
+}
+
+/* P2: 思考内容复制按钮 */
+.thinkingCopyBtn {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity var(--transition-speed);
+}
+
+.thinkingContent:hover .thinkingCopyBtn {
+  opacity: 1;
+}
+
+.thinkingCopyBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* ─── 输入区 ─── */

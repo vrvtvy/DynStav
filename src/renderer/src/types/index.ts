@@ -80,6 +80,9 @@ export interface AppConfig {
   activeAiModelId?: string | null
 }
 
+/** 推理强度档位，仅对支持推理的模型（DeepSeek R1 / Claude thinking / o1 等）生效 */
+export type ReasoningLevel = 'provider-default' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 /**
  * 单个模型配置。一个供应商可挂多个模型，每个模型可独立设置温度等参数。
  */
@@ -92,8 +95,16 @@ export interface AiModelConfig {
   name?: string
   /** 推理温度，留空则使用供应商默认值 */
   temperature?: number
-  /** 自定义请求参数（键值对），会合并到 API 请求体中，用于开启模型方特定功能 */
+  /** 自定义请求参数（键值对），会映射到 providerOptions 传递给模型 API */
   customParams?: Record<string, string>
+  /** 最大输出 token 数，留空则使用模型官方默认值（不传给 API） */
+  maxOutputTokens?: number
+  /** 模型上下文窗口大小（token），留空则系统自动学习；仅用于内部预算计算，不传给 API */
+  contextWindow?: number
+  /** 推理强度，仅对支持推理的模型生效 */
+  reasoning?: ReasoningLevel
+  /** 模型品牌图标 key（对应 @lobehub/icons），留空时从模型名自动检测 */
+  iconKey?: string
 }
 
 /**
@@ -113,7 +124,7 @@ export interface AiProviderConfig {
   model: string
   /** API 密钥（主进程侧加密后落盘，渲染层拿到的为明文） */
   apiKey: string
-  /** 请求超时（毫秒），默认 15000 */
+  /** 请求超时（毫秒），默认 300000（5 分钟，长思考模型需要更长时间） */
   timeoutMs: number
   /** 自定义请求路径（相对 baseUrl），如 /chat/completions，留空使用模板默认 */
   path?: string
@@ -121,6 +132,12 @@ export interface AiProviderConfig {
   headers?: Record<string, string>
   /** 推理温度，默认 0.3（供应商级默认值，模型级可覆盖） */
   temperature?: number
+  /** 供应商级最大输出 token 默认值，模型级可覆盖；留空则使用模型官方默认值 */
+  maxOutputTokens?: number
+  /** 供应商级上下文窗口默认值，模型级可覆盖；仅用于内部预算计算，不传给 API */
+  contextWindow?: number
+  /** 推理强度（由模型级解析后注入，仅模型级配置） */
+  reasoning?: ReasoningLevel
   /** 该供应商下的模型列表 */
   models?: AiModelConfig[]
   /** 自定义请求参数（由模型级 customParams 合并而来，运行时注入） */
@@ -188,6 +205,15 @@ export interface AiChatChunk {
   done: boolean
   /** 错误信息（done=true 时可能出现） */
   error?: string
+  /** token 用量（done=true 时由 onFinish 回调返回） */
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    reasoningTokens?: number
+    totalTokens?: number
+  }
+  /** 是否触发了上下文自动压缩 */
+  compressed?: boolean
 }
 
 /** 同花顺用户目录搜索结果 */
@@ -217,6 +243,13 @@ export interface ChatSessionMessage {
   thinkingContent?: string
   createdAt: string
   error?: boolean
+  /** token 用量（仅 assistant 消息有值） */
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    reasoningTokens?: number
+    totalTokens?: number
+  }
 }
 
 /** IPC 事件通道 */

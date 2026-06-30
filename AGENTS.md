@@ -19,25 +19,30 @@ pnpm run start        # 构建后启动应用
 
 ## 技术栈
 
-| 领域     | 技术                                           |
-| -------- | ---------------------------------------------- |
-| 框架     | Electron 33、React 18、TypeScript 5            |
-| 构建     | electron-vite、electron-builder                |
-| 可视化   | ECharts 5、echarts-for-react                   |
-| 数据存储 | sql.js（SQLite WASM）                          |
-| 日志     | electron-log                                   |
-| 编码处理 | iconv-lite（解析 GB18030 编码的同花顺配置）     |
+| 领域      | 技术                                              |
+| --------- | ------------------------------------------------- |
+| 框架      | Electron 33、React 18、TypeScript 5               |
+| 构建      | electron-vite、electron-builder                   |
+| 可视化    | ECharts 5、echarts-for-react                      |
+| AI 对话   | Vercel AI SDK 7（streamText / generateText）      |
+| AI 供应商 | @ai-sdk/openai、@ai-sdk/openai-compatible、@ai-sdk/anthropic、@ai-sdk/google |
+| Markdown  | marked 18                                          |
+| 数据存储  | sql.js（SQLite WASM）                             |
+| 日志      | electron-log                                      |
+| 编码处理  | iconv-lite（解析 GB18030 编码的同花顺配置）       |
 
 ## 项目结构
 
 ```
 src/
 ├── main/                 # Electron 主进程
-│   ├── ai/               # AI 对话服务（流式聊天、适配器模式）
-│   │   ├── adapters.ts   #   供应商适配器（openai/anthropic/responses）
-│   │   ├── presets.ts    #   预设供应商列表（13 家主流 AI 服务商）
-│   │   ├── service.ts    #   流式聊天主逻辑
-│   │   └── types.ts      #   AdapterRequest / ParsedDelta 接口
+│   ├── ai/               # AI 对话服务（流式聊天、Vercel AI SDK）
+│   │   ├── sdk-providers.ts    #   AiProviderConfig → SDK LanguageModel 桥接
+│   │   ├── context-manager.ts  #   Token 感知上下文管理（滑动窗口 + 摘要压缩）
+│   │   ├── model-registry.ts   #   模型能力注册 + 动态上下文窗口学习
+│   │   ├── presets.ts          #   预设供应商列表（14 家主流 AI 服务商）
+│   │   ├── service.ts          #   流式聊天主逻辑（streamText / generateText）
+│   │   └── types.ts            #   上下文构建工具（buildContextPrompt / injectContext）
 │   ├── analyzer/         # 板块指标计算
 │   ├── config-parser/    # 同花顺 stockblock.ini 解析（GB18030 → UTF-8）
 │   ├── data-fetcher/     # 腾讯行情接口获取 A 股实时行情
@@ -71,15 +76,17 @@ src/
             ├── Sidebar/       # 左侧板块列表（可搜索、可拖拽排序）
             ├── Chart/         # ECharts 多指标趋势图
             ├── RightPanel/    # 右侧 AI 对话面板
-            │   ├── index.tsx         # 容器组件
-            │   ├── AiChat.tsx        # 对话交互组件
-            │   ├── AiConfigDialog.tsx # 供应商/模型配置弹窗
+            │   ├── index.tsx           # 容器组件
+            │   ├── AiChat.tsx          # 对话交互组件（含模型选择器、品牌图标）
+            │   ├── AiConfigDialog.tsx  # 供应商/模型配置弹窗（含 detectModelIconKey）
             │   ├── ChatHistoryList.tsx # 历史对话列表
-            │   └── context.ts        # 对话上下文管理
+            │   └── context.ts          # Markdown 渲染 + 板块上下文构建
             ├── StatusBar/     # 底部状态栏
             ├── TitleBar/      # 自定义标题栏（无边框窗口）
             ├── Welcome/       # 首次引导页
             ├── GuideContent/  # 帮助指南
+            ├── icons/          # 品牌图标（嵌入 SVG 路径，24×24 viewBox）
+            │   └── providerIcons.tsx
             ├── RestoreDialog/ # 数据恢复弹窗
             └── ConfirmDialog/ # 确认弹窗
 ```
@@ -87,33 +94,68 @@ src/
 ## 关键约定
 
 ### 编码与注释
+
 - **所有注释、用户可见文本、commit 信息必须使用简体中文。**
 - 代码语法关键词（`if`、`for`、`import`、`interface` 等）保持英文不变。
 
 ### IPC 通信
+
 - 主进程通过 `src/main/ipc/index.ts` 的 `safeHandle(channel, handler)` 注册处理器，**不要直接使用 `ipcMain.handle`**。
 - 渲染进程通过 `window.electronAPI.*`（preload 通过 `contextBridge.exposeInMainWorld` 暴露）调用。
 - IPC 通道名称定义在 `src/renderer/src/types/index.ts` 的 `IPC_CHANNELS` 常量中。
 
-### AI 供应商适配器模式
-- 新增供应商：在 `src/main/ai/adapters.ts` 中实现 `ProviderAdapter` 接口：
-  - `buildRequest(config, messages) → AdapterRequest`：构造 HTTP 请求
-  - `parseDelta(line) → ParsedDelta | null`：解析 SSE 数据行
-- 预设定义在 `src/main/ai/presets.ts` 的 `PRESET_PROVIDERS` 数组中追加。
-- 支持三种模板：`completion`（OpenAI 兼容）、`anthropic`（Anthropic Messages API）、`responses`（OpenAI Responses API）。
+### AI 供应商集成（Vercel AI SDK）
+
+- 底层统一使用 Vercel AI SDK 的 `streamText()`（流式）和 `generateText()`（测试连接）。
+- 供应商桥接在 `src/main/ai/sdk-providers.ts` 中实现：
+  - 根据 `template` 类型创建对应的 SDK provider：
+    - `completion` / `custom` → `createOpenAICompatible()` — 第三方 OpenAI 兼容 API，走 `/v1/chat/completions`，会正确解析 `delta.reasoning_content`
+    - `responses` → `createOpenAI()` — OpenAI Responses API，走 `/v1/responses`
+    - `anthropic` → `createAnthropic()` — Anthropic Messages API
+  - **切勿用 `@ai-sdk/openai` 的 `provider(modelKey)` 处理第三方 API**：v4 中该方法默认走 `/v1/responses`，第三方（如百炼）不支持，返回 `400 Bad Request`。
+  - SDK 原生处理 SSE 解析、delta 合并、重试（`maxRetries: 2`）和超时（`timeout`）。
+- 预设定义在 `src/main/ai/presets.ts` 的 `PRESET_PROVIDERS` 数组中追加。每个预设需提供 `presetId`、`name`、`template`、`baseUrl`、`path`、`logo`（1-2 字母）、`iconKey`（对应 `providerIcons.tsx` 中的 SVG 路径）。
+- `src/main/ai/adapters.ts` 已废弃（旧的自定义适配器模式由 SDK 替代）。
+
+#### 上下文管理（ContextManager）
+
+- `src/main/ai/context-manager.ts` 提供 token 感知的上下文管理：
+  - 计算可用预算：`contextWindow - systemTokens - maxOutputTokens - reserve`
+  - 正常情况全量发送，超预算时保留最近 N 条消息，旧消息用 `generateText` 生成摘要作为 system 前缀
+  - 支持 `aggressive: true` 加强压缩模式（context exceeded 重试时使用）
+  - 轻量字符级 token 估算器，无外部依赖
+
+#### 模型能力注册（ModelRegistry）
+
+- `src/main/ai/model-registry.ts` 管理模型的上下文窗口：
+  - 四层优先级：用户配置 > 已学习缓存 > 静态注册表 > 兜底 131072
+  - 成功请求且 inputTokens 接近估计 → 保守上调（×1.5，上限 1M）
+  - context exceeded 错误 → 下调（×0.7）并触发加强压缩重试
+  - 学习值持久化到 `ai-config.json`
+  - `resolveMaxOutputTokens()` 永远返回 number（用户配置 > 65536），始终传 `max_tokens` 避免 API 零输出
+
+#### 品牌图标系统
+
+- 图标嵌入在 `src/renderer/src/components/icons/providerIcons.tsx`，为 24×24 SVG path 数据
+- 三级匹配 fallback：`m.iconKey`（模型字段）→ `detectModelIconKey(m.model)`（按名称自动检测）→ `g.provider.presetIconKey`（供应商预设）
+- `detectModelIconKey` 在 `AiConfigDialog.tsx` 中定义，按模型名前缀/关键词匹配品牌
+- 添加新图标：在 `providerIcons.tsx` 中追加 SVG 路径数据，在 `detectModelIconKey` 中添加匹配规则
 
 ### 数据层
+
 - **仓库模式**：`DataRepository` 接口定义在 `src/main/db/interface.ts`，`SqliteRepository` 实现于 `src/main/db/sqlite.ts`。
 - 通过 `getRepository()` 获取单例仓库实例。
 - 数据库初始化在 `src/main/db/index.ts` 中通过 `initDatabase()` 完成。
 
 ### 样式
+
 - 使用 **CSS Modules**（文件命名 `*.module.css`）。
 - 全局主题变量在 `src/renderer/src/styles/variables.css` 中定义。
 - 明暗主题分别定义在 `dark.css` / `light.css`，通过 `<html data-theme="dark|light">` 切换。
 - 无障碍配色：选用高对比度、色盲友好的颜色方案。
 
 ### 构建配置
+
 - `electron.vite.config.ts`：主进程/预加载使用 `externalizeDepsPlugin()`，渲染进程使用 `@` 别名 → `src/renderer/src`。
 - TypeScript 分两个配置：
   - `tsconfig.node.json`：主进程 + 预加载（Node 环境）
@@ -121,6 +163,7 @@ src/
   - 根 `tsconfig.json` 仅作引用，不含实际编译选项。
 
 ### 运行环境
+
 - **Windows 专属**：仅支持 Windows 10/11，依赖同花顺 Windows 客户端的 `stockblock.ini`。
 - **PowerShell 7**：所有 npm 脚本通过 `pwsh -NoProfile -File run.ps1 <command>` 执行。
 - **nvm**：使用 nvm 管理 Node.js 版本，要求 22+。
@@ -140,4 +183,9 @@ src/
 2. **交易日历**：渲染进程 `src/renderer/src/utils.ts` 中的 `getTradingDateRange` 已标记 `@deprecated`（仅跳过周末，不跳过节假日），应使用主进程 `src/main/trading-calendar.ts` 的完整交易日历接口。
 3. **日志初始化顺序**：`setupLogger()` → `log.initialize()` → `installGlobalErrorHandlers()` 必须在主进程入口 `src/main/index.ts` 的最顶部执行，确保后续所有操作的异常都能被捕获记录。
 4. **窗口状态保存**：只在窗口**非最大化**状态保存 `windowBounds`；最大化时只保存 `maximized: true`，还原时恢复上次的 bounds。
-5. **AI 流式取消**：取消流式请求需调用 `cancelChat()`（内部通过 `AbortController` 实现），不能仅靠断开连接。
+5. **AI 流式取消**：取消流式请求需调用 `cancelChat()`（内部通过 `AbortController` 实现），不能仅靠断开连接。SDK 的 `streamText()` 返回后会自动清理，但主动取消仍需调用 `cancelChat()` 触发 `AbortController.abort()`。
+6. **ESM 依赖外部化**：`@ai-sdk/*` 和 `ai` 包是纯 ESM 模块，必须从 `externalizeDepsPlugin({ exclude: [...] })` 中排除，否则打包后 `require()` 会抛出 `ERR_REQUIRE_ESM`。修改后需同步更新 `electron.vite.config.ts` 的 main 和 preload 两个配置段。
+7. **主进程需 build 后生效**：修改 `src/main/` 或 `src/preload/` 下的代码后，Vite HMR 仅覆盖渲染进程。主进程/preload 变更需 `pnpm build` 或重启 dev 才能生效。
+8. **`@ai-sdk/openai` v4 默认走 /responses**：调用第三方 API 必须使用 `@ai-sdk/openai-compatible` 的 `createOpenAICompatible().chatModel()`。`createOpenAI().chat()` 虽走 `/chat/completions` 但不解析 `delta.reasoning_content`。
+9. **API 错误被 Zod 噪音淹没**：非 SSE 的 JSON 错误（如 `{"code":"InvalidParameter","message":"..."}`）会被 Vercel AI SDK 包装成大量 `invalid_union` 验证错误。`service.ts` 中的 `extractApiErrorMessage()` 从 `APICallError.responseBody` 还原原始消息。
+10. **切勿自动注入自定义参数**：`customParams` 是用户手动配置的请求体参数，不要自动注入（如 `setCacheKey`），第三方 API 不认会返回错误。
