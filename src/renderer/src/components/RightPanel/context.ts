@@ -1,4 +1,11 @@
 import { BlockContext, BlockDailyStats } from '../../types'
+import { marked } from 'marked'
+
+// 配置 marked
+marked.setOptions({
+  breaks: true,   // 单个换行转 <br>
+  gfm: true,      // GitHub Flavored Markdown（表格、任务列表等）
+})
 
 /**
  * 由当前板块的统计数据构建上下文摘要，注入 AI 请求。
@@ -56,61 +63,10 @@ export function buildBlockContext(
   }
 }
 
-/**
- * 极简 Markdown 渲染。只支持渲染：代码块、行内代码、
- * **粗体**、列表（- / *）、标题（#）与换行。
- * 采用白名单转义避免 XSS；足够覆盖模型结构化回答。
- */
+/** 使用 marked 渲染 Markdown 为 HTML。 */
 export function renderMarkdown(md: string): string {
   if (!md) return ''
-  // 先转义 HTML 实体
-  let s = md
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-
-  const blocks: string[] = []
-  const segments = s.split(/(```[\s\S]*?```)/)
-  for (const seg of segments) {
-    if (seg.startsWith('```')) {
-      const inner = seg.replace(/^```\w*\n?/, '').replace(/```$/, '')
-      blocks.push(`<pre class="md-pre"><code>${inner}</code></pre>`)
-    } else {
-      // 行处理：列表、标题、粗体、行内代码、换行
-      const lines = seg.split('\n')
-      let html = ''
-      let inList = false
-      for (const line of lines) {
-        const trimmed = line.trimEnd()
-        if (/^#{1,6}\s/.test(trimmed)) {
-          if (inList) { html += '</ul>'; inList = false }
-          const level = trimmed.match(/^#+/)![0].length
-          const text = inline(trimmed.replace(/^#+\s/, ''))
-          html += `<h${level} class="md-h md-h${level}">${text}</h${level}>`
-        } else if (/^\s*[-*]\s+/.test(trimmed)) {
-          if (!inList) { html += '<ul class="md-ul">'; inList = true }
-          html += `<li>${inline(trimmed.replace(/^\s*[-*]\s+/, ''))}</li>`
-        } else if (/^\s*\d+\.\s+/.test(trimmed)) {
-          if (!inList) { html += '<ul class="md-ul">'; inList = true }
-          html += `<li>${inline(trimmed.replace(/^\s*\d+\.\s+/, ''))}</li>`
-        } else if (trimmed === '') {
-          if (inList) { html += '</ul>'; inList = false }
-        } else {
-          if (inList) { html += '</ul>'; inList = false }
-          html += `<p class="md-p">${inline(trimmed)}</p>`
-        }
-      }
-      if (inList) html += '</ul>'
-      blocks.push(html)
-    }
-  }
-  return blocks.join('')
-}
-
-function inline(text: string): string {
-  return text
-    .replace(/`([^`]+)`/g, '<code class="md-code">$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  return marked.parse(md, { async: false }) as string
 }
 
 function formatPct(v: number): string {

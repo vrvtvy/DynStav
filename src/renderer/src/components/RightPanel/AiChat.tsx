@@ -740,7 +740,12 @@ export default function AiChat({
                                   <span title="推理 token 数">思考 {m.usage.reasoningTokens.toLocaleString()}</span>
                                 </>
                               )}
-                              <span className={styles.msgMetaSep}>token</span>
+                              {typeof m.usage.totalTokens === 'number' && (
+                                <>
+                                  <span className={styles.msgMetaSep}>·</span>
+                                  <span title="总计 token 数">共 {m.usage.totalTokens.toLocaleString()} token</span>
+                                </>
+                              )}
                             </>
                           )}
                         </div>
