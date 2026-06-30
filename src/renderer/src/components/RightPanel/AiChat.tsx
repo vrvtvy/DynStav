@@ -36,6 +36,15 @@ interface UiMessage {
   /** 思考内容是否正在流式接收中 */
   thinkingStreaming?: boolean
   error?: boolean
+  /** token 用量（回复完成后由 onFinish 返回） */
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    reasoningTokens?: number
+    totalTokens?: number
+  }
+  /** 是否触发了上下文自动压缩 */
+  compressed?: boolean
 }
 
 /** 预置快捷提问，符合需求 §5 的典型示例。 */
@@ -212,7 +221,8 @@ export default function AiChat({
       content: m.content,
       thinkingContent: m.thinkingContent,
       createdAt: now,
-      error: m.error
+      error: m.error,
+      usage: m.usage
     }))
 
     await window.electronAPI.aiSaveSession({ session, messages: dbMessages })
@@ -226,7 +236,8 @@ export default function AiChat({
       role: m.role as 'user' | 'assistant',
       content: m.content,
       thinkingContent: m.thinkingContent || undefined,
-      error: m.error || false
+      error: m.error || false,
+      usage: m.usage
     }))
     setMessages(uiMsgs)
     setCurrentSessionId(sessionId)
@@ -264,7 +275,8 @@ export default function AiChat({
             content: m.content,
             thinkingContent: m.thinkingContent,
             createdAt: now,
-            error: m.error
+            error: m.error,
+            usage: m.usage
           }))
         })
       }
@@ -330,7 +342,7 @@ export default function AiChat({
   useEffect(() => {
     const unsub = window.electronAPI.onAiChatChunk((data) => {
       if (data.requestId !== pendingRequestId) return
-      const { delta, thinking, done, error } = data.chunk
+      const { delta, thinking, done, error, usage, compressed } = data.chunk
       setMessages(prev => {
         const next = [...prev]
         const last = next[next.length - 1]
@@ -358,6 +370,9 @@ export default function AiChat({
             if (last.thinkingContent) {
               setThinkingExpanded(prev => ({ ...prev, [last.id]: false }))
             }
+            // 捕获 token 用量和压缩标记
+            if (usage) last.usage = usage
+            if (compressed) last.compressed = compressed
           }
           return [...next]
         }
@@ -401,8 +416,9 @@ export default function AiChat({
       setInput('')
       requestAnimationFrame(resizeTextarea)
 
-      const recent: ChatMessage[] = [
-        ...messages.filter(m => !m.error).slice(-6).map(m => ({ role: m.role, content: m.content })),
+      // 发送全部历史消息（主进程 ContextManager 负责 token 感知截断和摘要压缩）
+      const allMessages: ChatMessage[] = [
+        ...messages.filter(m => !m.error && m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content }
       ]
 
@@ -410,7 +426,7 @@ export default function AiChat({
         await window.electronAPI.aiChat({
           providerId: activeProvider!.id,
           activeModelId: activeModelId || undefined,
-          messages: recent,
+          messages: allMessages,
           context
         })
       } catch (e: any) {
@@ -699,6 +715,36 @@ export default function AiChat({
                       <div className={styles.disclaimer}>
                         以上内容由 AI 生成，仅供参考，不构成任何投资建议。投资有风险，入市需谨慎。
                       </div>
+                      {(m.usage || m.compressed) && (
+                        <div className={styles.msgMeta}>
+                          {m.compressed && (
+                            <span className={styles.msgMetaCompressed} title="历史对话过长，已自动压缩为摘要">
+                              ⚡ 已压缩历史
+                            </span>
+                          )}
+                          {m.compressed && m.usage && <span className={styles.msgMetaSep}>·</span>}
+                          {m.usage && (
+                            <>
+                              {typeof m.usage.inputTokens === 'number' && (
+                                <span title="输入 token 数">输入 {m.usage.inputTokens.toLocaleString()}</span>
+                              )}
+                              {typeof m.usage.outputTokens === 'number' && (
+                                <>
+                                  <span className={styles.msgMetaSep}>·</span>
+                                  <span title="输出 token 数">输出 {m.usage.outputTokens.toLocaleString()}</span>
+                                </>
+                              )}
+                              {typeof m.usage.reasoningTokens === 'number' && m.usage.reasoningTokens > 0 && (
+                                <>
+                                  <span className={styles.msgMetaSep}>·</span>
+                                  <span title="推理 token 数">思考 {m.usage.reasoningTokens.toLocaleString()}</span>
+                                </>
+                              )}
+                              <span className={styles.msgMetaSep}>token</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                       <button
                         className={styles.copyBtn}
                         onClick={() => navigator.clipboard.writeText(m.content)}

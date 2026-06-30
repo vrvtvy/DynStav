@@ -359,13 +359,30 @@ export class SqliteRepository implements DataRepository {
         content TEXT NOT NULL,
         thinking TEXT DEFAULT '',
         created_at TEXT NOT NULL,
-        error INTEGER DEFAULT 0
+        error INTEGER DEFAULT 0,
+        input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        reasoning_tokens INTEGER DEFAULT 0,
+        total_tokens INTEGER DEFAULT 0
       )
     `)
     // 为已有表添加 thinking 列（向后兼容迁移）
     const cols = this.db.exec("PRAGMA table_info(chat_messages)")[0]?.values?.map((v: any) => v[1]) || []
     if (cols.length > 0 && !cols.includes('thinking')) {
       this.db.run("ALTER TABLE chat_messages ADD COLUMN thinking TEXT DEFAULT ''")
+    }
+    // 为已有表添加 token 用量列（向后兼容迁移）
+    if (cols.length > 0 && !cols.includes('input_tokens')) {
+      this.db.run("ALTER TABLE chat_messages ADD COLUMN input_tokens INTEGER DEFAULT 0")
+    }
+    if (cols.length > 0 && !cols.includes('output_tokens')) {
+      this.db.run("ALTER TABLE chat_messages ADD COLUMN output_tokens INTEGER DEFAULT 0")
+    }
+    if (cols.length > 0 && !cols.includes('reasoning_tokens')) {
+      this.db.run("ALTER TABLE chat_messages ADD COLUMN reasoning_tokens INTEGER DEFAULT 0")
+    }
+    if (cols.length > 0 && !cols.includes('total_tokens')) {
+      this.db.run("ALTER TABLE chat_messages ADD COLUMN total_tokens INTEGER DEFAULT 0")
     }
     // 为按板块查询会话建立索引
     this.db.run(`CREATE INDEX IF NOT EXISTS idx_chat_sessions_block ON chat_sessions(block_code, updated_at DESC)`)
@@ -405,7 +422,8 @@ export class SqliteRepository implements DataRepository {
 
   getChatMessages(sessionId: string): ChatSessionMessage[] {
     const stmt = this.db.prepare(`
-      SELECT id, session_id, role, content, thinking, created_at, error
+      SELECT id, session_id, role, content, thinking, created_at, error,
+             input_tokens, output_tokens, reasoning_tokens, total_tokens
       FROM chat_messages
       WHERE session_id = $session_id
       ORDER BY created_at ASC
@@ -414,6 +432,7 @@ export class SqliteRepository implements DataRepository {
     const results: ChatSessionMessage[] = []
     while (stmt.step()) {
       const r = stmt.getAsObject() as any
+      const hasUsage = r.role === 'assistant' && (r.input_tokens > 0 || r.output_tokens > 0)
       results.push({
         id: r.id,
         sessionId: r.session_id,
@@ -421,7 +440,13 @@ export class SqliteRepository implements DataRepository {
         content: r.content,
         thinkingContent: r.thinking || undefined,
         createdAt: r.created_at,
-        error: !!r.error
+        error: !!r.error,
+        usage: hasUsage ? {
+          inputTokens: r.input_tokens || 0,
+          outputTokens: r.output_tokens || 0,
+          reasoningTokens: r.reasoning_tokens || 0,
+          totalTokens: r.total_tokens || 0,
+        } : undefined,
       })
     }
     stmt.free()
@@ -448,8 +473,10 @@ export class SqliteRepository implements DataRepository {
     this.db.run('DELETE FROM chat_messages WHERE session_id = $sid', { $sid: session.id })
 
     const stmt = this.db.prepare(`
-      INSERT INTO chat_messages (id, session_id, role, content, thinking, created_at, error)
-      VALUES ($id, $session_id, $role, $content, $thinking, $created_at, $error)
+      INSERT INTO chat_messages (id, session_id, role, content, thinking, created_at, error,
+        input_tokens, output_tokens, reasoning_tokens, total_tokens)
+      VALUES ($id, $session_id, $role, $content, $thinking, $created_at, $error,
+        $input_tokens, $output_tokens, $reasoning_tokens, $total_tokens)
     `)
     for (const m of messages) {
       stmt.bind({
@@ -459,7 +486,11 @@ export class SqliteRepository implements DataRepository {
         $content: m.content,
         $thinking: m.thinkingContent || '',
         $created_at: m.createdAt,
-        $error: m.error ? 1 : 0
+        $error: m.error ? 1 : 0,
+        $input_tokens: m.usage?.inputTokens ?? 0,
+        $output_tokens: m.usage?.outputTokens ?? 0,
+        $reasoning_tokens: m.usage?.reasoningTokens ?? 0,
+        $total_tokens: m.usage?.totalTokens ?? 0,
       })
       stmt.step()
       stmt.reset()
