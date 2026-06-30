@@ -101,8 +101,8 @@ export function ProviderLogoIcon({ iconKey, size = 14, className, style }: Provi
       style={{ flexShrink: 0, display: 'block', ...style }}
     >
       {paths.map((p, i) => {
-        const { d, ...rest } = p
-        return <path key={i} d={d} {...rest} />
+        const { d, fillOpacity, clipRule, fillRule } = p
+        return <path key={i} d={d} fillOpacity={fillOpacity} clipRule={clipRule} fillRule={fillRule as any} />
       })}
     </svg>
   )
